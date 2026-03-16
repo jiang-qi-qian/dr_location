@@ -4,32 +4,37 @@
 
 现在使用 `var mode = 'command'` 的方式传递命令，配置文件在 main.js 开头自动加载。
 
+所有参数用 `;` 分隔。
+
 ## 直接使用 sdb 命令
 
 ```bash
 # 显示集群信息
-sdb -f bin/main.js -e "var mode = 'show'"
+sdb -f bin/main.js -e "var mode='show'"
 
 # 检查 Location 配置
-sdb -f bin/main.js -e "var mode = 'check'"
+sdb -f bin/main.js -e "var mode='check'"
 
 # 初始化 Location
-sdb -f bin/main.js -e "var mode = 'init'"
+sdb -f bin/main.js -e "var mode='init'"
 
 # 开启 MaintenanceMode
-sdb -f bin/main.js -e "var mode = 'start_maintenance'; var l = 'GuangZhou'"
+sdb -f bin/main.js -e "var mode='start_maintenance'; var l='GuangZhou'"
 
 # 关闭 MaintenanceMode
-sdb -f bin/main.js -e "var mode = 'stop_maintenance'; var l = 'GuangZhou'"
+sdb -f bin/main.js -e "var mode='stop_maintenance'; var l='GuangZhou'"
 
 # 开启 CriticalMode
-sdb -f bin/main.js -e "var mode = 'start_critical'; var l = 'ShenZhen'"
+sdb -f bin/main.js -e "var mode='start_critical'; var l='ShenZhen'"
 
 # 关闭 CriticalMode
-sdb -f bin/main.js -e "var mode = 'stop_critical'; var l = 'ShenZhen'"
+sdb -f bin/main.js -e "var mode='stop_critical'; var l='ShenZhen'"
 
 # 恢复集群
-sdb -f bin/main.js -e "var mode = 'restore'"
+sdb -f bin/main.js -e "var mode='restore'"
+
+# 使用多个参数
+sdb -f bin/main.js -e "var mode='start_maintenance'; var c='config.js'; var l='GuangZhou'; var H='host1,host2'"
 ```
 
 ## 使用 Shell 脚本
@@ -69,16 +74,22 @@ sdb -f bin/main.js -e "var mode = 'restore'"
 ./bin/sdb_restore_cluster.sh
 ```
 
-## 使用多个参数
+## Shell 脚本参数说明
 
-```bash
-# 开启 MaintenanceMode 并指定配置文件和文件
-sdb -f bin/main.js -e "var mode = 'start_maintenance'; var c = 'config.js'; var file = 'nodes.txt'"
-```
+| Shell 参数 | JavaScript 变量 | 说明 |
+|-----------|----------------|------|
+| `-c <file>` | `var c="file"` | 配置文件路径 |
+| `-f <file>` | `var file="file"` | 节点信息文件 |
+| `-l <location>` | `var l="location"` | Location 名称 |
+| `-H <host>` | `var H="host"` | 主机名 |
+| `-n <node>` | `var n="node"` | 节点名 |
+| `-d <domain>` | `var d="domain"` | 域名 |
+| `--check` | `var check=1` | 检查节点状态 |
 
 ## 优势
 
 1. **更简洁**: 不再需要 `loadConfig('config.js')`
-2. **更直观**: 参数直接作为 JavaScript 变量声明
-3. **更灵活**: 可以直接在 sdb 命令中组合任意参数
-4. **更快速**: 配置文件在 main.js 开头自动加载，无需每次调用
+2. **更直观**: 参数直接作为 JavaScript var 声明
+3. **更快速**: 配置文件在 main.js 开头自动加载
+4. **更灵活**: 可以直接在 sdb 命令中组合任意参数
+5. **更规范**: 所有 var 定义用 `;` 分隔，符合 JavaScript 语法

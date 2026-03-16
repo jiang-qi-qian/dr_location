@@ -40,7 +40,13 @@ EOF
 
 # 主函数
 function main() {
-    local options=()
+    local conf_val=""
+    local loc_val=""
+    local host_val=""
+    local nod_val=""
+    local dom_val=""
+    local file_val=""
+    local check_val=""
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -49,31 +55,31 @@ function main() {
                 exit 0
                 ;;
             -c|--conf)
-                options+=("-c" "$2")
+                conf_val="$2"
                 shift 2
                 ;;
             -l|--location)
-                options+=("-l" "$2")
+                loc_val="$2"
                 shift 2
                 ;;
             -H|--hostname)
-                options+=("-H" "$2")
+                host_val="$2"
                 shift 2
                 ;;
             -n|--nodename)
-                options+=("-n" "$2")
+                nod_val="$2"
                 shift 2
                 ;;
             -d|--domain)
-                options+=("-d" "$2")
+                dom_val="$2"
                 shift 2
                 ;;
             -f|--file)
-                options+=("-f" "$2")
+                file_val="$2"
                 shift 2
                 ;;
             --check)
-                options+=("--check")
+                check_val="1"
                 shift
                 ;;
             *)
@@ -90,33 +96,31 @@ function main() {
         exit 1
     fi
 
-    # 构建参数列表
-    local params=""
-    if [ -n "$options[c]" ]; then
-        params="$params var c=\"$options[c]\""
+    # 构建参数列表，用 ; 分隔
+    local cmd="var mode=\"stop_critical\""
+    if [ -n "$conf_val" ]; then
+        cmd="$cmd; var c=\"$conf_val\""
     fi
-    if [ -n "$options[l]" ]; then
-        params="$params var l=\"$options[l]\""
+    if [ -n "$loc_val" ]; then
+        cmd="$cmd; var l=\"$loc_val\""
     fi
-    if [ -n "$options[H]" ]; then
-        params="$params var H=\"$options[H]\""
+    if [ -n "$host_val" ]; then
+        cmd="$cmd; var H=\"$host_val\""
     fi
-    if [ -n "$options[n]" ]; then
-        params="$params var n=\"$options[n]\""
+    if [ -n "$nod_val" ]; then
+        cmd="$cmd; var n=\"$nod_val\""
     fi
-    if [ -n "$options[d]" ]; then
-        params="$params var d=\"$options[d]\""
+    if [ -n "$dom_val" ]; then
+        cmd="$cmd; var d=\"$dom_val\""
     fi
-    if [ -n "$options[f]" ]; then
-        params="$params var file=\"$options[f]\""
+    if [ -n "$file_val" ]; then
+        cmd="$cmd; var file=\"$file_val\""
     fi
-    if [ -n "$options[check]" ]; then
-        params="$params var check=1"
+    if [ -n "$check_val" ]; then
+        cmd="$cmd; var check=1"
     fi
 
-    # 构建最终执行命令
-    local exec_cmd="var mode=\"stop_critical\" $params"
-    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$exec_cmd"
+    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$cmd"
 }
 
 main "$@"

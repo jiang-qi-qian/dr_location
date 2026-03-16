@@ -35,7 +35,8 @@ EOF
 # 主函数
 function main() {
     local command=""
-    local options=()
+    local conf_val=""
+    local file_val=""
     local params=""
 
     while [[ $# -gt 0 ]]; do
@@ -45,11 +46,11 @@ function main() {
                 exit 0
                 ;;
             -c|--conf)
-                options+=("-c" "$2")
+                conf_val="$2"
                 shift 2
                 ;;
             -f|--file)
-                options+=("-f" "$2")
+                file_val="$2"
                 shift 2
                 ;;
             show)
@@ -78,17 +79,16 @@ function main() {
         exit 1
     fi
 
-    # 构建参数列表
-    if [ -n "$options[c]" ]; then
-        params="$params var c=\"$options[c]\""
+    # 构建参数列表，用 ; 分隔
+    local cmd="var mode=\"$command\""
+    if [ -n "$conf_val" ]; then
+        cmd="$cmd; var c=\"$conf_val\""
     fi
-    if [ -n "$options[f]" ]; then
-        params="$params var file=\"$options[f]\""
+    if [ -n "$file_val" ]; then
+        cmd="$cmd; var file=\"$file_val\""
     fi
 
-    # 构建最终执行命令
-    local exec_cmd="var mode=\"$command\" $params"
-    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$exec_cmd"
+    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$cmd"
 }
 
 main "$@"

@@ -32,7 +32,7 @@ EOF
 
 # 主函数
 function main() {
-    local options=()
+    local conf_val=""
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -41,7 +41,7 @@ function main() {
                 exit 0
                 ;;
             -c|--conf)
-                options+=("-c" "$2")
+                conf_val="$2"
                 shift 2
                 ;;
             *)
@@ -58,9 +58,13 @@ function main() {
         exit 1
     fi
 
-    # 构建最终执行命令
-    local exec_cmd="var mode=\"restore\""
-    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$exec_cmd"
+    # 构建参数列表，用 ; 分隔
+    local cmd="var mode=\"restore\""
+    if [ -n "$conf_val" ]; then
+        cmd="$cmd; var c=\"$conf_val\""
+    fi
+
+    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$cmd"
 }
 
 main "$@"

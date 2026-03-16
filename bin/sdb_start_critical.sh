@@ -40,9 +40,7 @@ EOF
 
 # 主函数
 function main() {
-    local command="start_critical"
     local options=()
-    local eval_args=()
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -52,32 +50,26 @@ function main() {
                 ;;
             -c|--conf)
                 options+=("-c" "$2")
-                eval_args+=("-c" "\"$2\"")
                 shift 2
                 ;;
             -l|--location)
                 options+=("-l" "$2")
-                eval_args+=("-l" "\"$2\"")
                 shift 2
                 ;;
             -H|--hostname)
                 options+=("-H" "$2")
-                eval_args+=("-H" "\"$2\"")
                 shift 2
                 ;;
             -n|--nodename)
                 options+=("-n" "$2")
-                eval_args+=("-n" "\"$2\"")
                 shift 2
                 ;;
             -d|--domain)
                 options+=("-d" "$2")
-                eval_args+=("-d" "\"$2\"")
                 shift 2
                 ;;
             -f|--file)
                 options+=("-f" "$2")
-                eval_args+=("-f" "\"$2\"")
                 shift 2
                 ;;
             *)
@@ -94,13 +86,28 @@ function main() {
         exit 1
     fi
 
-    # 调用main.js，使用-e参数传递JavaScript代码
-    local js_code="loadConfig(\"config.js\");"
-    for arg in "${eval_args[@]}"; do
-        js_code="$js_code $arg"
-    done
+    # 构建参数列表
+    local params=""
+    if [ -n "$options[c]" ]; then
+        params="-c \"$options[c]\""
+    fi
+    if [ -n "$options[l]" ]; then
+        params="$params -l \"$options[l]\""
+    fi
+    if [ -n "$options[H]" ]; then
+        params="$params -H \"$options[H]\""
+    fi
+    if [ -n "$options[n]" ]; then
+        params="$params -n \"$options[n]\""
+    fi
+    if [ -n "$options[d]" ]; then
+        params="$params -d \"$options[d]\""
+    fi
+    if [ -n "$options[f]" ]; then
+        params="$params -f \"$options[f]\""
+    fi
 
-    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$js_code"
+    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "loadConfig('config.js'); start_critical $params"
 }
 
 main "$@"

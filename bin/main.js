@@ -9,138 +9,40 @@ var config = {
     defaultOutput: "output/location.txt"
 };
 
-// 解析命令行参数（从命令行位置参数）
-function parseArgumentsFromPositional(args) {
-    var command = "show"; // 默认命令
-    var options = {};
-
-    for (var i = 0; i < args.length; i++) {
-        var arg = args[i];
-
-        // 命令模式
-        if (["show", "check", "init", "start_maintenance", "stop_maintenance",
-             "start_critical", "stop_critical", "restore"].indexOf(arg) !== -1) {
-            command = arg;
-        }
-        // 选项模式
-        else if (arg === "-c" || arg === "--conf") {
-            options.config = args[i + 1];
-            i++;
-        }
-        else if (arg === "-f" || arg === "--file") {
-            options.file = args[i + 1];
-            i++;
-        }
-        else if (arg === "-l" || arg === "--location") {
-            options.location = args[i + 1];
-            i++;
-        }
-        else if (arg === "-H" || arg === "--hostname") {
-            options.hostnames = args[i + 1];
-            i++;
-        }
-        else if (arg === "-n" || arg === "--nodename") {
-            options.nodenames = args[i + 1];
-            i++;
-        }
-        else if (arg === "-d" || arg === "--domain") {
-            options.domains = args[i + 1];
-            i++;
-        }
-        else if (arg === "--check") {
-            options.check = true;
-        }
-        else if (arg.startsWith("-")) {
-            print("Unknown option: " + arg);
-            showHelp();
-            exit(1);
-        }
+// 加载配置
+function loadConfig(configPath) {
+    if (!configPath) {
+        configPath = config.scriptDir + "/../config/config.js";
     }
 
-    return { command, options };
-}
+    try {
+        // 使用 sdb 的 import 接口读取配置文件
+        // 这会将 config.js 中的所有变量加载到当前作用域
+        import(configPath);
 
-// 解析 -e 参数的 JavaScript 代码
-function parseArgumentsFromEvaluate(args) {
-    // args 包含所有通过 -e 传递的 JavaScript 代码片段
-    var combined = args.join(" ");
-    var command = "show";
-    var options = {};
+        // 现在 config.js 中定义的变量已经全局可用了
+        // 例如：sdbCoord, sdbUser, sdbPassword, initLocationObject 等
 
-    // 提取命令（第一个非选项参数）
-    var tokens = combined.trim().split(/\s+/);
-    var i = 0;
+        // 确保 config 对象包含配置文件中的变量
+        if (typeof sdbCoord !== 'undefined') config.sdbCoord = sdbCoord;
+        if (typeof sdbUser !== 'undefined') config.sdbUser = sdbUser;
+        if (typeof sdbPassword !== 'undefined') config.sdbPassword = sdbPassword;
+        if (typeof sdbToken !== 'undefined') config.sdbToken = sdbToken;
+        if (typeof sdbCipherFile !== 'undefined') config.sdbCipherFile = sdbCipherFile;
+        if (typeof initLocationObject !== 'undefined') config.initLocationObject = initLocationObject;
+        if (typeof activeLocation !== 'undefined') config.activeLocation = activeLocation;
+        if (typeof reelectLevel !== 'undefined') config.reelectLevel = reelectLevel;
+        if (typeof minKeepTime !== 'undefined') config.minKeepTime = minKeepTime;
+        if (typeof maxKeepTime !== 'undefined') config.maxKeepTime = maxKeepTime;
+        if (typeof enforceMaintenance !== 'undefined') config.enforceMaintenance = enforceMaintenance;
+        if (typeof enforceCritical !== 'undefined') config.enforceCritical = enforceCritical;
 
-    if (tokens.length > 0) {
-        var firstToken = tokens[0];
-        if (["show", "check", "init", "start_maintenance", "stop_maintenance",
-             "start_critical", "stop_critical", "restore"].indexOf(firstToken) !== -1) {
-            command = firstToken;
-            i++;
-        }
+        return config;
+    } catch (e) {
+        print("Error: Failed to load config file: " + configPath);
+        print("Error: " + e.message);
+        exit(1);
     }
-
-    // 解析选项
-    while (i < tokens.length) {
-        var token = tokens[i];
-        if (token === "-c" || token === "--conf") {
-            if (i + 1 < tokens.length) {
-                options.config = tokens[i + 1];
-                i += 2;
-            } else {
-                i++;
-            }
-        }
-        else if (token === "-f" || token === "--file") {
-            if (i + 1 < tokens.length) {
-                options.file = tokens[i + 1];
-                i += 2;
-            } else {
-                i++;
-            }
-        }
-        else if (token === "-l" || token === "--location") {
-            if (i + 1 < tokens.length) {
-                options.location = tokens[i + 1];
-                i += 2;
-            } else {
-                i++;
-            }
-        }
-        else if (token === "-H" || token === "--hostname") {
-            if (i + 1 < tokens.length) {
-                options.hostnames = tokens[i + 1];
-                i += 2;
-            } else {
-                i++;
-            }
-        }
-        else if (token === "-n" || token === "--nodename") {
-            if (i + 1 < tokens.length) {
-                options.nodenames = tokens[i + 1];
-                i += 2;
-            } else {
-                i++;
-            }
-        }
-        else if (token === "-d" || token === "--domain") {
-            if (i + 1 < tokens.length) {
-                options.domains = tokens[i + 1];
-                i += 2;
-            } else {
-                i++;
-            }
-        }
-        else if (token === "--check") {
-            options.check = true;
-            i++;
-        }
-        else {
-            i++;
-        }
-    }
-
-    return { command, options };
 }
 
 // 显示帮助信息
@@ -181,42 +83,16 @@ function loadConfig(configPath) {
         configPath = config.scriptDir + "/../config/config.js";
     }
 
-    var configFile = new File(configPath);
-    if (!configFile.exists()) {
-        print("Error: Config file not found: " + configPath);
+    try {
+        // 使用 sdb 的 import 接口读取配置文件
+        var configModule = import(configPath);
+        config = Object.assign({}, config, configModule);
+        return config;
+    } catch (e) {
+        print("Error: Failed to load config file: " + configPath);
+        print("Error: " + e.message);
         exit(1);
     }
-
-    var content = configFile.read();
-    configFile.close();
-
-    // 提取配置变量
-    var match;
-    var configRegex = /\b(\w+)\s*=\s*(.+?);?$/gm;
-    while ((match = configRegex.exec(content)) !== null) {
-        var varName = match[1];
-        var varValue = match[2].trim();
-
-        try {
-            if (varValue.startsWith("{")) {
-                config[varName] = JSON.parse(varValue);
-            } else if (varValue.startsWith('"') && varValue.endsWith('"')) {
-                config[varName] = varValue.substring(1, varValue.length - 1);
-            } else if (varValue.match(/^\d+$/)) {
-                config[varName] = parseInt(varValue, 10);
-            } else if (varValue.match(/^true$/i)) {
-                config[varName] = true;
-            } else if (varValue.match(/^false$/i)) {
-                config[varName] = false;
-            } else {
-                config[varName] = varValue;
-            }
-        } catch (e) {
-            config[varName] = varValue;
-        }
-    }
-
-    return config;
 }
 
 // 读取节点信息文件
@@ -279,36 +155,14 @@ function readNodeFile(filePath) {
 function main() {
     var args = Array.prototype.slice.call(arguments);
 
-    // 检查是否有 -e 参数（新的调用方式）
-    var hasEvaluateArg = false;
-    for (var i = 0; i < args.length; i++) {
-        if (args[i] === "-e") {
-            hasEvaluateArg = true;
-            break;
-        }
-    }
-
-    var result;
-    if (hasEvaluateArg) {
-        // 新的调用方式：从 -e 参数解析
-        result = parseArgumentsFromEvaluate(args);
-    } else {
-        // 旧的调用方式：从位置参数解析
-        result = parseArgumentsFromPositional(args);
-    }
-
-    var command = result.command;
-    var options = result.options;
-
     // 显示帮助
-    if (options.help || command === "help") {
+    if (args.length > 0 && (args[0] === "-h" || args[0] === "--help")) {
         showHelp();
         exit(0);
     }
 
-    // 加载配置
-    var configPath = options.config || config.defaultConfig;
-    loadConfig(configPath);
+    // 加载配置文件
+    loadConfig();
 
     try {
         // 初始化连接
@@ -317,43 +171,55 @@ function main() {
             exit(1);
         }
 
-        switch (command) {
-            case "show":
-                executeShow(options.file);
-                break;
-
-            case "check":
-                executeCheck(options.file);
-                break;
-
-            case "init":
-                executeInit();
-                break;
-
-            case "start_maintenance":
-                executeStartMaintenance(options);
-                break;
-
-            case "stop_maintenance":
-                executeStopMaintenance(options);
-                break;
-
-            case "start_critical":
-                executeStartCritical(options);
-                break;
-
-            case "stop_critical":
-                executeStopCritical(options);
-                break;
-
-            case "restore":
-                executeRestore();
-                break;
-
-            default:
-                print("Unknown command: " + command);
-                showHelp();
-                exit(1);
+        // 执行所有参数中的 JavaScript 语句
+        for (var i = 0; i < args.length; i++) {
+            var arg = args[i];
+            if (arg && arg.trim() !== "") {
+                try {
+                    eval(arg);
+                } catch (e) {
+                    // 如果 eval 失败，尝试作为命令函数调用
+                    try {
+                        var command = arg;
+                        if (["show", "check", "init", "start_maintenance", "stop_maintenance",
+                             "start_critical", "stop_critical", "restore"].indexOf(command) !== -1) {
+                            switch (command) {
+                                case "show":
+                                    executeShow();
+                                    break;
+                                case "check":
+                                    executeCheck();
+                                    break;
+                                case "init":
+                                    executeInit();
+                                    break;
+                                case "start_maintenance":
+                                    executeStartMaintenance();
+                                    break;
+                                case "stop_maintenance":
+                                    executeStopMaintenance();
+                                    break;
+                                case "start_critical":
+                                    executeStartCritical();
+                                    break;
+                                case "stop_critical":
+                                    executeStopCritical();
+                                    break;
+                                case "restore":
+                                    executeRestore();
+                                    break;
+                            }
+                        } else {
+                            // 尝试作为函数调用
+                            eval(arg + "()");
+                        }
+                    } catch (e2) {
+                        print("Error: " + e.message);
+                        print(e.stack);
+                        exit(1);
+                    }
+                }
+            }
         }
 
         disconnectFromSdb();
@@ -368,14 +234,14 @@ function main() {
 }
 
 // 执行 show 命令
-function executeShow(file) {
+function executeShow() {
     var nodeInfo = readNodeFile(file);
 
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
     }
 
-    var locationFile = nodeInfo ? (config.scriptDir + "/../output/location.txt") : file;
+    var locationFile = nodeInfo ? (config.projectRoot + "/output/location.txt") : file;
     dc.locationAnalyze({}, locationFile);
     disconnectFromSdb();
 
@@ -395,14 +261,14 @@ function executeShow(file) {
 }
 
 // 执行 check 命令
-function executeCheck(file) {
+function executeCheck() {
     var nodeInfo = readNodeFile(file);
 
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
     }
 
-    var locationFile = nodeInfo ? (config.scriptDir + "/../output/location.txt") : file;
+    var locationFile = nodeInfo ? (config.projectRoot + "/output/location.txt") : file;
     dc.locationAnalyze({}, locationFile);
     disconnectFromSdb();
 
@@ -416,25 +282,9 @@ function executeCheck(file) {
         displayFile.close();
 
         // 读取配置文件中的期望Location
-        var configFile = new File(configPath);
-        if (configFile.exists()) {
-            var configContent = configFile.read();
-            configFile.close();
-
-            var configRegex = /(\w+)\s*=\s*(.+?);?$/gm;
-            var match;
-            var expectedLocs = [];
-            while ((match = configRegex.exec(configContent)) !== null) {
-                if (match[1] === "initLocationObject") {
-                    try {
-                        expectedLocs = JSON.parse(match[2]);
-                        print("\nExpected Locations:");
-                        print(JSON.stringify(expectedLocs, null, 2));
-                    } catch (e) {
-                        // ignore
-                    }
-                }
-            }
+        if (initLocationObject) {
+            print("\nExpected Locations:");
+            print(JSON.stringify(initLocationObject, null, 2));
         }
     } else {
         print("Warning: Location file not found: " + locationFile);
@@ -481,26 +331,25 @@ function executeInit() {
 }
 
 // 执行 start_maintenance 命令
-function executeStartMaintenance(options) {
-    var nodeInfo = readNodeFile(options.file);
-    var filter = {};
+function executeStartMaintenance() {
+    var nodeInfo = readNodeFile(file);
 
-    if (options.location && nodeInfo) {
+    if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
             dc.startMaintenanceMode({ Location: nodeInfo.locations[i] });
         }
     }
-    if (options.hostnames && nodeInfo) {
+    if (hostnames && nodeInfo) {
         for (var i = 0; i < nodeInfo.hostnames.length; i++) {
             dc.startMaintenanceMode({ Hostname: nodeInfo.hostnames[i] });
         }
     }
-    if (options.nodenames && nodeInfo) {
+    if (nodenames && nodeInfo) {
         for (var i = 0; i < nodeInfo.nodenames.length; i++) {
             dc.startMaintenanceMode({ NodeName: nodeInfo.nodenames[i] });
         }
     }
-    if (options.domains && nodeInfo) {
+    if (domains && nodeInfo) {
         for (var i = 0; i < nodeInfo.domains.length; i++) {
             dc.startMaintenanceMode({ Domain: nodeInfo.domains[i] });
         }
@@ -510,11 +359,10 @@ function executeStartMaintenance(options) {
 }
 
 // 执行 stop_maintenance 命令
-function executeStopMaintenance(options) {
-    var nodeInfo = readNodeFile(options.file);
-    var filter = {};
+function executeStopMaintenance() {
+    var nodeInfo = readNodeFile(file);
 
-    if (options.check) {
+    if (check) {
         print("Checking node status before stopping MaintenanceMode...");
         if (!checkNodes("maintenance")) {
             print("Error: Some nodes are not OK, cannot stop MaintenanceMode");
@@ -522,22 +370,22 @@ function executeStopMaintenance(options) {
         }
     }
 
-    if (options.location && nodeInfo) {
+    if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
             dc.stopMaintenanceMode({ Location: nodeInfo.locations[i] });
         }
     }
-    if (options.hostnames && nodeInfo) {
+    if (hostnames && nodeInfo) {
         for (var i = 0; i < nodeInfo.hostnames.length; i++) {
             dc.stopMaintenanceMode({ Hostname: nodeInfo.hostnames[i] });
         }
     }
-    if (options.nodenames && nodeInfo) {
+    if (nodenames && nodeInfo) {
         for (var i = 0; i < nodeInfo.nodenames.length; i++) {
             dc.stopMaintenanceMode({ NodeName: nodeInfo.nodenames[i] });
         }
     }
-    if (options.domains && nodeInfo) {
+    if (domains && nodeInfo) {
         for (var i = 0; i < nodeInfo.domains.length; i++) {
             dc.stopMaintenanceMode({ Domain: nodeInfo.domains[i] });
         }
@@ -547,26 +395,25 @@ function executeStopMaintenance(options) {
 }
 
 // 执行 start_critical 命令
-function executeStartCritical(options) {
-    var nodeInfo = readNodeFile(options.file);
-    var filter = {};
+function executeStartCritical() {
+    var nodeInfo = readNodeFile(file);
 
-    if (options.location && nodeInfo) {
+    if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
             dc.startCriticalMode({ Location: nodeInfo.locations[i] });
         }
     }
-    if (options.hostnames && nodeInfo) {
+    if (hostnames && nodeInfo) {
         for (var i = 0; i < nodeInfo.hostnames.length; i++) {
             dc.startCriticalMode({ Hostname: nodeInfo.hostnames[i] });
         }
     }
-    if (options.nodenames && nodeInfo) {
+    if (nodenames && nodeInfo) {
         for (var i = 0; i < nodeInfo.nodenames.length; i++) {
             dc.startCriticalMode({ NodeName: nodeInfo.nodenames[i] });
         }
     }
-    if (options.domains && nodeInfo) {
+    if (domains && nodeInfo) {
         for (var i = 0; i < nodeInfo.domains.length; i++) {
             dc.startCriticalMode({ Domain: nodeInfo.domains[i] });
         }
@@ -576,11 +423,10 @@ function executeStartCritical(options) {
 }
 
 // 执行 stop_critical 命令
-function executeStopCritical(options) {
-    var nodeInfo = readNodeFile(options.file);
-    var filter = {};
+function executeStopCritical() {
+    var nodeInfo = readNodeFile(file);
 
-    if (options.check) {
+    if (check) {
         print("Checking node status before stopping CriticalMode...");
         if (!checkNodes("critical")) {
             print("Error: Some nodes are not OK, cannot stop CriticalMode");
@@ -588,22 +434,22 @@ function executeStopCritical(options) {
         }
     }
 
-    if (options.location && nodeInfo) {
+    if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
             dc.stopCriticalMode({ Location: nodeInfo.locations[i] });
         }
     }
-    if (options.hostnames && nodeInfo) {
+    if (hostnames && nodeInfo) {
         for (var i = 0; i < nodeInfo.hostnames.length; i++) {
             dc.stopCriticalMode({ Hostname: nodeInfo.hostnames[i] });
         }
     }
-    if (options.nodenames && nodeInfo) {
+    if (nodenames && nodeInfo) {
         for (var i = 0; i < nodeInfo.nodenames.length; i++) {
             dc.stopCriticalMode({ NodeName: nodeInfo.nodenames[i] });
         }
     }
-    if (options.domains && nodeInfo) {
+    if (domains && nodeInfo) {
         for (var i = 0; i < nodeInfo.domains.length; i++) {
             dc.stopCriticalMode({ Domain: nodeInfo.domains[i] });
         }

@@ -33,7 +33,6 @@ EOF
 # 主函数
 function main() {
     local options=()
-    local eval_args=()
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -43,7 +42,6 @@ function main() {
                 ;;
             -c|--conf)
                 options+=("-c" "$2")
-                eval_args+=("-c" "\"$2\"")
                 shift 2
                 ;;
             *)
@@ -60,13 +58,7 @@ function main() {
         exit 1
     fi
 
-    # 调用main.js，使用-e参数传递JavaScript代码
-    local js_code="loadConfig(\"config.js\");"
-    for arg in "${eval_args[@]}"; do
-        js_code="$js_code $arg"
-    done
-
-    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$js_code"
+    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "loadConfig('config.js'); restore"
 }
 
 main "$@"

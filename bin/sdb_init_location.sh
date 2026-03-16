@@ -26,17 +26,17 @@ Options:
 Examples:
     sdb_init_location.sh
     sdb_init_location.sh show
-    sdb_init_location.sh check -c config/config.js
-    sdb_init_location.sh init -c config/config.js
-    sdb_init_location.sh show -f location.txt
+    sdb_init_location.sh check
+    sdb_init_location.sh init
 
-For show mode, the generated location file can be modified and used with init -f file:
 EOF
 }
 
 # 主函数
 function main() {
+    local command=""
     local options=()
+    local params=""
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -53,17 +53,16 @@ function main() {
                 shift 2
                 ;;
             show)
+                command="show"
                 shift
-                # 使用 -c 指定配置文件后，执行 show 命令
-                exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "loadConfig('config.js'); show"
                 ;;
             check)
+                command="check"
                 shift
-                exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "loadConfig('config.js'); check"
                 ;;
             init)
+                command="init"
                 shift
-                exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "loadConfig('config.js'); init"
                 ;;
             *)
                 echo "Unknown option: $1"
@@ -73,13 +72,23 @@ function main() {
         esac
     done
 
-    # 默认显示
+    # 检查配置文件
     if [ ! -f "$PROJECT_ROOT/config/config.js" ]; then
         echo "Error: Config file not found: $PROJECT_ROOT/config/config.js"
         exit 1
     fi
 
-    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "loadConfig('config.js'); show"
+    # 构建参数列表
+    if [ -n "$options[c]" ]; then
+        params="$params var c=\"$options[c]\""
+    fi
+    if [ -n "$options[f]" ]; then
+        params="$params var file=\"$options[f]\""
+    fi
+
+    # 构建最终执行命令
+    local exec_cmd="var mode=\"$command\" $params"
+    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$exec_cmd"
 }
 
 main "$@"

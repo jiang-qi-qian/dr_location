@@ -89,25 +89,27 @@ function main() {
     # 构建参数列表
     local params=""
     if [ -n "$options[c]" ]; then
-        params="-c \"$options[c]\""
+        params="$params var c=\"$options[c]\""
     fi
     if [ -n "$options[l]" ]; then
-        params="$params -l \"$options[l]\""
+        params="$params var l=\"$options[l]\""
     fi
     if [ -n "$options[H]" ]; then
-        params="$params -H \"$options[H]\""
+        params="$params var H=\"$options[H]\""
     fi
     if [ -n "$options[n]" ]; then
-        params="$params -n \"$options[n]\""
+        params="$params var n=\"$options[n]\""
     fi
     if [ -n "$options[d]" ]; then
-        params="$params -d \"$options[d]\""
+        params="$params var d=\"$options[d]\""
     fi
     if [ -n "$options[f]" ]; then
-        params="$params -f \"$options[f]\""
+        params="$params var file=\"$options[f]\""
     fi
 
-    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "loadConfig('config.js'); start_critical $params"
+    # 构建最终执行命令
+    local exec_cmd="var mode=\"start_critical\" $params"
+    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$exec_cmd"
 }
 
 main "$@"

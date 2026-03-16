@@ -1,7 +1,10 @@
 // dr_location 工具 - 主入口文件
-// 使用方式: sdb -f bin/main.js [command] [options]
+// 使用方式: sdb -f bin/main.js -e "var mode = 'show'; ..."
 
-// 全局配置
+// 在文件开头加载配置文件
+import('config/config.js');
+
+// 全局配置（从配置文件中导入）
 var config = {
     scriptDir: new File(__FILE__).parent().path(),
     projectRoot: new File(__FILE__).parent().parent().path(),
@@ -9,88 +12,78 @@ var config = {
     defaultOutput: "output/location.txt"
 };
 
-// 加载配置
-function loadConfig(configPath) {
-    if (!configPath) {
-        configPath = config.scriptDir + "/../config/config.js";
-    }
-
-    try {
-        // 使用 sdb 的 import 接口读取配置文件
-        // 这会将 config.js 中的所有变量加载到当前作用域
-        import(configPath);
-
-        // 现在 config.js 中定义的变量已经全局可用了
-        // 例如：sdbCoord, sdbUser, sdbPassword, initLocationObject 等
-
-        // 确保 config 对象包含配置文件中的变量
-        if (typeof sdbCoord !== 'undefined') config.sdbCoord = sdbCoord;
-        if (typeof sdbUser !== 'undefined') config.sdbUser = sdbUser;
-        if (typeof sdbPassword !== 'undefined') config.sdbPassword = sdbPassword;
-        if (typeof sdbToken !== 'undefined') config.sdbToken = sdbToken;
-        if (typeof sdbCipherFile !== 'undefined') config.sdbCipherFile = sdbCipherFile;
-        if (typeof initLocationObject !== 'undefined') config.initLocationObject = initLocationObject;
-        if (typeof activeLocation !== 'undefined') config.activeLocation = activeLocation;
-        if (typeof reelectLevel !== 'undefined') config.reelectLevel = reelectLevel;
-        if (typeof minKeepTime !== 'undefined') config.minKeepTime = minKeepTime;
-        if (typeof maxKeepTime !== 'undefined') config.maxKeepTime = maxKeepTime;
-        if (typeof enforceMaintenance !== 'undefined') config.enforceMaintenance = enforceMaintenance;
-        if (typeof enforceCritical !== 'undefined') config.enforceCritical = enforceCritical;
-
-        return config;
-    } catch (e) {
-        print("Error: Failed to load config file: " + configPath);
-        print("Error: " + e.message);
-        exit(1);
-    }
-}
-
 // 显示帮助信息
 function showHelp() {
-    var helpText = "Usage: sdb -f bin/main.js -e [JavaScript code]\n\n" +
-                   "Commands:\n" +
-                   "  show          Show current cluster location information\n" +
-                   "  check         Check location configuration against expected\n" +
-                   "  init          Initialize location configuration\n" +
-                   "  start_maintenance  Start MaintenanceMode\n" +
-                   "  stop_maintenance   Stop MaintenanceMode\n" +
-                   "  start_critical     Start CriticalMode\n" +
-                   "  stop_critical      Stop CriticalMode\n" +
-                   "  restore          Restore cluster (stop all modes)\n\n" +
-                   "Options:\n" +
-                   "  -h, --help          Show help message\n" +
-                   "  -c, --conf <file>   Specify config file\n" +
-                   "  -f, --file <file>   Specify node information file\n" +
-                   "  -l, --location <loc>Specify Location\n" +
-                   "  -H, --hostname <host>Specify hostname(s)\n" +
-                   "  -n, --nodename <node>Specify nodename(s)\n" +
-                   "  -d, --domain <domain>Specify domain(s)\n" +
-                   "  --check             Check node status before stopping mode\n\n" +
-                   "Examples:\n" +
-                   "  sdb -f bin/main.js -e \"loadConfig('config/config.js'); show\"\n" +
-                   "  sdb -f bin/main.js -e \"loadConfig('config/config.js'); check\"\n" +
-                   "  sdb -f bin/main.js -e \"loadConfig('config/config.js'); init\"\n" +
-                   "  sdb -f bin/main.js -e \"loadConfig('config/config.js'); start_maintenance -l GuangZhou\"\n" +
-                   "  sdb -f bin/main.js -e \"loadConfig('config/config.js'); stop_maintenance -H host1,host2\"\n" +
-                   "  sdb -f bin/main.js -e \"loadConfig('config/config.js'); restore\"";
+    var helpText =
+        "Usage: sdb -f bin/main.js -e \"var mode = 'command'; ...\"\n\n" +
+        "Commands:\n" +
+        "  show          Show current cluster location information\n" +
+        "  check         Check location configuration against expected\n" +
+        "  init          Initialize location configuration\n" +
+        "  start_maintenance  Start MaintenanceMode\n" +
+        "  stop_maintenance   Stop MaintenanceMode\n" +
+        "  start_critical     Start CriticalMode\n" +
+        "  stop_critical      Stop CriticalMode\n" +
+        "  restore          Restore cluster (stop all modes)\n\n" +
+        "Variables:\n" +
+        "  mode          Command name\n" +
+        "  c             Config file path\n" +
+        "  file          Node information file\n" +
+        "  l             Location name\n" +
+        "  H             Hostname(s)\n" +
+        "  n             Nodename(s)\n" +
+        "  d             Domain(s)\n" +
+        "  check         Enable check before stopping mode (1 or 0)\n\n" +
+        "Examples:\n" +
+        "  sdb -f bin/main.js -e \"var mode = 'show'\"\n" +
+        "  sdb -f bin/main.js -e \"var mode = 'check'\"\n" +
+        "  sdb -f bin/main.js -e \"var mode = 'init'\"\n" +
+        "  sdb -f bin/main.js -e \"var mode = 'start_maintenance'; var l = 'GuangZhou'\"\n" +
+        "  sdb -f bin/main.js -e \"var mode = 'stop_maintenance'; var H = 'host1,host2'; var check = 1\"\n" +
+        "  sdb -f bin/main.js -e \"var mode = 'restore'\"";
 
     print(helpText);
 }
 
-// 加载配置
-function loadConfig(configPath) {
-    if (!configPath) {
-        configPath = config.scriptDir + "/../config/config.js";
-    }
-
+// 加载配置（仅检查配置文件中的变量是否存在）
+function loadConfig() {
     try {
-        // 使用 sdb 的 import 接口读取配置文件
-        var configModule = import(configPath);
-        config = Object.assign({}, config, configModule);
+        // 检查配置文件中的关键变量是否存在
+        var requiredVars = [
+            'sdbCoord', 'sdbUser', 'sdbPassword',
+            'initLocationObject', 'activeLocation',
+            'reelectLevel', 'minKeepTime', 'maxKeepTime'
+        ];
+
+        var missingVars = [];
+        for (var i = 0; i < requiredVars.length; i++) {
+            if (typeof window[requiredVars[i]] === 'undefined') {
+                missingVars.push(requiredVars[i]);
+            }
+        }
+
+        if (missingVars.length > 0) {
+            print("Error: Missing required config variables: " + missingVars.join(', '));
+            exit(1);
+        }
+
+        // 将配置文件中的变量复制到 config 对象
+        config.sdbCoord = sdbCoord;
+        config.sdbUser = sdbUser;
+        config.sdbPassword = sdbPassword;
+        config.sdbToken = sdbToken;
+        config.sdbCipherFile = sdbCipherFile;
+        config.initLocationObject = initLocationObject;
+        config.activeLocation = activeLocation;
+        config.reelectLevel = reelectLevel;
+        config.minKeepTime = minKeepTime;
+        config.maxKeepTime = maxKeepTime;
+        config.enforceMaintenance = enforceMaintenance;
+        config.enforceCritical = enforceCritical;
+
         return config;
     } catch (e) {
-        print("Error: Failed to load config file: " + configPath);
-        print("Error: " + e.message);
+        print("Error: Failed to load config: " + e.message);
         exit(1);
     }
 }
@@ -161,10 +154,10 @@ function main() {
         exit(0);
     }
 
-    // 加载配置文件
-    loadConfig();
-
     try {
+        // 加载配置
+        loadConfig();
+
         // 初始化连接
         if (!connectToSdb()) {
             print("Error: Failed to connect to SequoiaDB");
@@ -172,52 +165,16 @@ function main() {
         }
 
         // 执行所有参数中的 JavaScript 语句
+        // 参数格式: var mode = 'show'; var file = 'xxx';
         for (var i = 0; i < args.length; i++) {
             var arg = args[i];
             if (arg && arg.trim() !== "") {
                 try {
                     eval(arg);
                 } catch (e) {
-                    // 如果 eval 失败，尝试作为命令函数调用
-                    try {
-                        var command = arg;
-                        if (["show", "check", "init", "start_maintenance", "stop_maintenance",
-                             "start_critical", "stop_critical", "restore"].indexOf(command) !== -1) {
-                            switch (command) {
-                                case "show":
-                                    executeShow();
-                                    break;
-                                case "check":
-                                    executeCheck();
-                                    break;
-                                case "init":
-                                    executeInit();
-                                    break;
-                                case "start_maintenance":
-                                    executeStartMaintenance();
-                                    break;
-                                case "stop_maintenance":
-                                    executeStopMaintenance();
-                                    break;
-                                case "start_critical":
-                                    executeStartCritical();
-                                    break;
-                                case "stop_critical":
-                                    executeStopCritical();
-                                    break;
-                                case "restore":
-                                    executeRestore();
-                                    break;
-                            }
-                        } else {
-                            // 尝试作为函数调用
-                            eval(arg + "()");
-                        }
-                    } catch (e2) {
-                        print("Error: " + e.message);
-                        print(e.stack);
-                        exit(1);
-                    }
+                    print("Error: Failed to execute: " + arg);
+                    print("Error: " + e.message);
+                    exit(1);
                 }
             }
         }

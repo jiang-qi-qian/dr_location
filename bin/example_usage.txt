@@ -1,0 +1,84 @@
+# dr_location 使用示例 - 新方式
+
+## 命令格式
+
+现在使用 `var mode = 'command'` 的方式传递命令，配置文件在 main.js 开头自动加载。
+
+## 直接使用 sdb 命令
+
+```bash
+# 显示集群信息
+sdb -f bin/main.js -e "var mode = 'show'"
+
+# 检查 Location 配置
+sdb -f bin/main.js -e "var mode = 'check'"
+
+# 初始化 Location
+sdb -f bin/main.js -e "var mode = 'init'"
+
+# 开启 MaintenanceMode
+sdb -f bin/main.js -e "var mode = 'start_maintenance'; var l = 'GuangZhou'"
+
+# 关闭 MaintenanceMode
+sdb -f bin/main.js -e "var mode = 'stop_maintenance'; var l = 'GuangZhou'"
+
+# 开启 CriticalMode
+sdb -f bin/main.js -e "var mode = 'start_critical'; var l = 'ShenZhen'"
+
+# 关闭 CriticalMode
+sdb -f bin/main.js -e "var mode = 'stop_critical'; var l = 'ShenZhen'"
+
+# 恢复集群
+sdb -f bin/main.js -e "var mode = 'restore'"
+```
+
+## 使用 Shell 脚本
+
+```bash
+# 初始化 Location
+./bin/sdb_init_location.sh init
+
+# 查看集群信息
+./bin/sdb_init_location.sh show
+
+# 检查配置
+./bin/sdb_init_location.sh check
+
+# 开启 MaintenanceMode
+./bin/sdb_start_maintenance.sh -l GuangZhou
+./bin/sdb_start_maintenance.sh -H host1,host2
+./bin/sdb_start_maintenance.sh -d domain1
+./bin/sdb_start_maintenance.sh -f location.txt
+
+# 关闭 MaintenanceMode
+./bin/sdb_stop_maintenance.sh -l GuangZhou
+./bin/sdb_stop_maintenance.sh -H host1,host2
+./bin/sdb_stop_maintenance.sh --check
+
+# 开启 CriticalMode
+./bin/sdb_start_critical.sh -l GuangZhou
+./bin/sdb_start_critical.sh -H host1,host2
+./bin/sdb_start_critical.sh -f location.txt
+
+# 关闭 CriticalMode
+./bin/sdb_stop_critical.sh -l GuangZhou
+./bin/sdb_stop_critical.sh -H host1,host2
+./bin/sdb_stop_critical.sh --check
+
+# 恢复集群
+./bin/sdb_restore_cluster.sh
+```
+
+## 使用多个参数
+
+```bash
+# 开启 MaintenanceMode 并指定配置文件和文件
+sdb -f bin/main.js -e "var mode = 'start_maintenance'; var c = 'config.js'; var file = 'nodes.txt'"
+```
+
+## 优势
+
+1. **更简洁**: 不再需要 `loadConfig('config.js')`
+2. **更直观**: 参数直接作为 JavaScript 变量声明
+3. **更灵活**: 可以直接在 sdb 命令中组合任意参数
+4. **更快速**: 配置文件在 main.js 开头自动加载，无需每次调用

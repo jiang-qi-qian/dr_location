@@ -58,7 +58,9 @@ function main() {
         exit 1
     fi
 
-    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "loadConfig('config.js'); restore"
+    # 构建最终执行命令
+    local exec_cmd="var mode=\"restore\""
+    exec sdb -f "$PROJECT_ROOT/bin/main.js" -e "$exec_cmd"
 }
 
 main "$@"

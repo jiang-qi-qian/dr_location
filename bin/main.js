@@ -4,13 +4,9 @@
 // 在文件开头加载配置文件
 import('../config/config.js');
 
-// 全局配置（从配置文件中导入）
-var config = {
-    scriptDir: new File(__FILE__).parent().path(),
-    projectRoot: new File(__FILE__).parent().parent().path(),
-    defaultConfig: "config/config.js",
-    defaultOutput: "output/location.txt"
-};
+// 全局 db 和 dc 对象
+var db = null;
+var dc = null;
 
 // 显示帮助信息
 function showHelp() {
@@ -49,21 +45,28 @@ function showHelp() {
 function connectToSdb() {
     var sdb_cmd = "sdb";
 
-    // 设置连接参数
-    if (config.sdbCipherFile && new File(config.sdbCipherFile).exists()) {
-        sdb_cmd = sdb_cmd + " -i " + config.sdbCipherFile + " -u " + config.sdbUser + " -p ''";
+    // 设置连接参数（使用全局变量）
+    if (sdbCipherFile && new File(sdbCipherFile).exists()) {
+        var cipherUser = CipherUser(sdbUser);
+        cipherUser.cipherFile(sdbCipherFile);
+        sdb = new Sdb(sdbCoord.split(':')[0], parseInt(sdbCoord.split(':')[1] || '11810'), cipherUser);
     } else {
-        sdb_cmd = sdb_cmd + " -u " + config.sdbUser + " -p '" + config.sdbPassword + "'";
+        sdb = new Sdb(sdbCoord.split(':')[0], parseInt(sdbCoord.split(':')[1] || '11810'), sdbUser, sdbPassword);
     }
 
-    sdb_cmd = sdb_cmd + " -s " + config.sdbCoord;
+    // 检查连接是否成功
+    try {
+        // 获取全局 db 和 dc 对象
+        db = sdb;
+        dc = sdb.getDC();
 
-    // 执行连接命令
-    var result = new File("/dev/null");
-    var error = new File("/dev/stderr");
-    system(sdb_cmd, result, error);
+        // 测试连接
+        db.getCS("SYSCat").getCL("$CMD", {}, {});
 
-    return (result.read() !== "");
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 // 断开连接
@@ -655,21 +658,8 @@ function loadConfig() {
             exit(1);
         }
 
-        // 将配置文件中的变量复制到 config 对象
-        config.sdbCoord = sdbCoord;
-        config.sdbUser = sdbUser;
-        config.sdbPassword = sdbPassword;
-        config.sdbToken = sdbToken;
-        config.sdbCipherFile = sdbCipherFile;
-        config.initLocationObject = initLocationObject;
-        config.activeLocation = activeLocation;
-        config.reelectLevel = reelectLevel;
-        config.minKeepTime = minKeepTime;
-        config.maxKeepTime = maxKeepTime;
-        config.enforceMaintenance = enforceMaintenance;
-        config.enforceCritical = enforceCritical;
-
-        return config;
+        // 配置文件中的变量已通过 import 直接导入到全局作用域
+        return true;
     } catch (e) {
         print("Error: Failed to load config: " + e.message);
         exit(1);
@@ -786,7 +776,7 @@ function executeShow() {
         throw new Error("Failed to connect to SequoiaDB");
     }
 
-    var locationFile = nodeInfo ? (config.projectRoot + "/output/location.txt") : file;
+    var locationFile = nodeInfo ? (projectRoot + "/output/location.txt") : file;
     dc.locationAnalyze({}, locationFile);
     disconnectFromSdb();
 
@@ -813,7 +803,7 @@ function executeCheck() {
         throw new Error("Failed to connect to SequoiaDB");
     }
 
-    var locationFile = nodeInfo ? (config.projectRoot + "/output/location.txt") : file;
+    var locationFile = nodeInfo ? (projectRoot + "/output/location.txt") : file;
     dc.locationAnalyze({}, locationFile);
     disconnectFromSdb();
 
@@ -842,7 +832,7 @@ function executeCheck() {
 function executeInit() {
     print("Initializing location configuration...");
 
-    var locations = config.initLocationObject;
+    var locations = initLocationObject;
     if (!locations || Object.keys(locations).length === 0) {
         throw new Error("initLocationObject is not configured in config.js");
     }
@@ -869,9 +859,9 @@ function executeInit() {
         throw new Error("No locations were set");
     }
 
-    if (config.activeLocation && config.activeLocation !== "") {
-        print("Setting active location: " + config.activeLocation);
-        dc.setActiveLocation(config.activeLocation);
+    if (activeLocation && activeLocation !== "") {
+        print("Setting active location: " + activeLocation);
+        dc.setActiveLocation(activeLocation);
     }
 }
 
@@ -881,22 +871,38 @@ function executeStartMaintenance() {
 
     if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
-            dc.startMaintenanceMode({ Location: nodeInfo.locations[i] });
+            dc.startMaintenanceMode({
+                Location: nodeInfo.locations[i],
+                MinKeepTime: minKeepTime,
+                MaxKeepTime: maxKeepTime
+            });
         }
     }
     if (hostnames && nodeInfo) {
         for (var i = 0; i < nodeInfo.hostnames.length; i++) {
-            dc.startMaintenanceMode({ Hostname: nodeInfo.hostnames[i] });
+            dc.startMaintenanceMode({
+                Hostname: nodeInfo.hostnames[i],
+                MinKeepTime: minKeepTime,
+                MaxKeepTime: maxKeepTime
+            });
         }
     }
     if (nodenames && nodeInfo) {
         for (var i = 0; i < nodeInfo.nodenames.length; i++) {
-            dc.startMaintenanceMode({ NodeName: nodeInfo.nodenames[i] });
+            dc.startMaintenanceMode({
+                NodeName: nodeInfo.nodenames[i],
+                MinKeepTime: minKeepTime,
+                MaxKeepTime: maxKeepTime
+            });
         }
     }
     if (domains && nodeInfo) {
         for (var i = 0; i < nodeInfo.domains.length; i++) {
-            dc.startMaintenanceMode({ Domain: nodeInfo.domains[i] });
+            dc.startMaintenanceMode({
+                Domain: nodeInfo.domains[i],
+                MinKeepTime: minKeepTime,
+                MaxKeepTime: maxKeepTime
+            });
         }
     }
 
@@ -945,22 +951,38 @@ function executeStartCritical() {
 
     if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
-            dc.startCriticalMode({ Location: nodeInfo.locations[i] });
+            dc.startCriticalMode({
+                Location: nodeInfo.locations[i],
+                MinKeepTime: minKeepTime,
+                MaxKeepTime: maxKeepTime
+            });
         }
     }
     if (hostnames && nodeInfo) {
         for (var i = 0; i < nodeInfo.hostnames.length; i++) {
-            dc.startCriticalMode({ Hostname: nodeInfo.hostnames[i] });
+            dc.startCriticalMode({
+                Hostname: nodeInfo.hostnames[i],
+                MinKeepTime: minKeepTime,
+                MaxKeepTime: maxKeepTime
+            });
         }
     }
     if (nodenames && nodeInfo) {
         for (var i = 0; i < nodeInfo.nodenames.length; i++) {
-            dc.startCriticalMode({ NodeName: nodeInfo.nodenames[i] });
+            dc.startCriticalMode({
+                NodeName: nodeInfo.nodenames[i],
+                MinKeepTime: minKeepTime,
+                MaxKeepTime: maxKeepTime
+            });
         }
     }
     if (domains && nodeInfo) {
         for (var i = 0; i < nodeInfo.domains.length; i++) {
-            dc.startCriticalMode({ Domain: nodeInfo.domains[i] });
+            dc.startCriticalMode({
+                Domain: nodeInfo.domains[i],
+                MinKeepTime: minKeepTime,
+                MaxKeepTime: maxKeepTime
+            });
         }
     }
 

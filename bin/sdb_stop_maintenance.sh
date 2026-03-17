@@ -98,6 +98,7 @@ function main() {
 
     # 构建参数列表，用 ; 分隔
     local cmd="var mode=\"stop_maintenance\""
+    cmd="$cmd; var projectRoot=\"$PROJECT_ROOT\""
     if [ -n "$conf_val" ]; then
         cmd="$cmd; var c=\"$conf_val\""
     fi

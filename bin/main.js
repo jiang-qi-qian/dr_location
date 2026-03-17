@@ -85,12 +85,15 @@ function getCurrentTimestamp() {
     var minute = now.getMinutes();
     var second = now.getSeconds();
 
+    var pad = function(num) {
+        return String(num).length < 2 ? '0' + String(num) : String(num);
+    };
     return year + "-" +
-           String(month).padStart(2, '0') + "-" +
-           String(day).padStart(2, '0') + "-" +
-           String(hour).padStart(2, '0') + "." +
-           String(minute).padStart(2, '0') + "." +
-           String(second).padStart(2, '0');
+           pad(month) + "-" +
+           pad(day) + "-" +
+           pad(hour) + "." +
+           pad(minute) + "." +
+           pad(second);
 }
 
 // 获取 Location 分析结果
@@ -367,7 +370,10 @@ function formatDuration(minutes) {
     }
     var hours = Math.floor(minutes / 60);
     var mins = minutes % 60;
-    return String(hours).padStart(2, '0') + ":" + String(mins).padStart(2, '0');
+    var pad = function(num) {
+        return String(num).length < 2 ? '0' + String(num) : String(num);
+    };
+    return pad(hours) + ":" + pad(mins);
 }
 
 // 格式化时间戳为秒级
@@ -375,12 +381,15 @@ function formatTimestampToSeconds(timestamp) {
     if (typeof timestamp === "string") {
         var parts = timestamp.split("-");
         if (parts.length >= 3) {
+            var pad = function(num) {
+                return String(num).length < 2 ? '0' + String(num) : String(num);
+            };
             return parts[0] + "-" +
-                   String(parts[1]).padStart(2, '0') + "-" +
-                   String(parts[2]).padStart(2, '0') + " " +
-                   String(parts[3]).padStart(2, '0') + ":" +
-                   String(parts[4]).padStart(2, '0') + ":" +
-                   String(parts[5]).padStart(2, '0');
+                   pad(parts[1]) + "-" +
+                   pad(parts[2]) + " " +
+                   pad(parts[3]) + ":" +
+                   pad(parts[4]) + ":" +
+                   pad(parts[5]);
         }
     }
     return timestamp;
@@ -748,7 +757,7 @@ function main() {
 
         // 初始化连接
         if (!connectToSdb()) {
-            print("\n" + "Error".padEnd(15) + "Failed to connect to SequoiaDB");
+            print("\nError" + "              " + "Failed to connect to SequoiaDB");
             print("Please check your connection configuration in config.js");
             return;
         }
@@ -797,7 +806,7 @@ function main() {
 
     } catch (e) {
         disconnectFromSdb();
-        print("\n" + "Error".padEnd(15) + e.message);
+        print("\nError" + "              " + e.message);
         if (e.stack) {
             print("\nStack trace:");
             var stackLines = e.stack.split('\n');

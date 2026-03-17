@@ -613,7 +613,7 @@ function loadConfig() {
 
         var missingVars = [];
         for (var i = 0; i < requiredVars.length; i++) {
-            if (typeof window[requiredVars[i]] === 'undefined') {
+            if (typeof requiredVars[i] === 'undefined') {
                 missingVars.push(requiredVars[i]);
             }
         }
@@ -780,7 +780,7 @@ function validateMode() {
         'start_critical', 'stop_critical', 'restore'
     ];
 
-    if (!validModes.includes(mode)) {
+    if (-1 == validModes.indexOf(mode)) {
         print("Error: Unknown mode: " + mode);
         print("Available modes: " + validModes.join(', '));
         return false;

@@ -237,15 +237,23 @@ function checkNodes(mode) {
             var modeObj = cursor.current().toObj();
             var groupName = modeObj.GroupName;
 
-            var groupInfo = db.snapshot(SDB_SNAP_CONFIGS, { Name: groupName });
+            var option = new SdbSnapshotOption().options({IgnoreDefault:true,ShowRunStatus:true});
+            var groupInfo = db.snapshot(SDB_SNAP_CONFIGS, option.cond({Name: groupName}));
             if (groupInfo) {
                 var groupObj = groupInfo.toObj();
                 if (groupObj.Group) {
                     for (var i = 0; i < groupObj.Group.length; i++) {
                         var nodeObj = groupObj.Group[i];
+
+                        // 检查节点状态
                         if (nodeObj.Status && nodeObj.Status !== "OK") {
                             hasError = true;
                             print("  ✗ " + nodeObj.NodeName + ": " + nodeObj.Status);
+                        }
+
+                        // 显示运行状态信息（如果有）
+                        if (nodeObj.RunStatusWeightDesp) {
+                            print("    - " + nodeObj.NodeName + " RunStatusWeightDesp: " + nodeObj.RunStatusWeightDesp + ", RunStatusWeight: " + nodeObj.RunStatusWeight);
                         }
                     }
                 }
@@ -655,14 +663,14 @@ function loadConfig() {
 
         if (missingVars.length > 0) {
             print("Error: Missing required config variables: " + missingVars.join(', '));
-            exit(1);
+            throw new Error("Missing required config variables: " + missingVars.join(', '));
         }
 
         // 配置文件中的变量已通过 import 直接导入到全局作用域
         return true;
     } catch (e) {
         print("Error: Failed to load config: " + e.message);
-        exit(1);
+        throw new Error("Failed to load config: " + e.message);
     }
 }
 
@@ -724,52 +732,184 @@ function readNodeFile(filePath) {
 
 // 主函数
 function main() {
-    var args = Array.prototype.slice.call(arguments);
-
-    // 显示帮助
-    if (args.length > 0 && (args[0] === "-h" || args[0] === "--help")) {
-        showHelp();
-        exit(0);
-    }
-
     try {
+        print("=" + "=".repeat(60));
+        print("SequoiaDB Location Disaster Recovery Tool");
+        print("=" + "=".repeat(60));
+        print();
+
+        // 参数验证
+        if (!validateMode()) {
+            return;
+        }
+
         // 加载配置
         loadConfig();
 
         // 初始化连接
         if (!connectToSdb()) {
-            print("Error: Failed to connect to SequoiaDB");
-            exit(1);
+            print("\n" + "Error".padEnd(15) + "Failed to connect to SequoiaDB");
+            print("Please check your connection configuration in config.js");
+            return;
         }
 
-        // 执行所有参数中的 JavaScript 语句
-        // 参数格式: var mode = 'show'; var file = 'xxx';
-        for (var i = 0; i < args.length; i++) {
-            var arg = args[i];
-            if (arg && arg.trim() !== "") {
-                try {
-                    eval(arg);
-                } catch (e) {
-                    print("Error: Failed to execute: " + arg);
-                    print("Error: " + e.message);
-                    exit(1);
-                }
-            }
+        print("\nConnected to SequoiaDB successfully");
+        print("Coordinate: " + sdbCoord);
+        print("User: " + sdbUser);
+        print();
+
+        // 执行对应命令
+        // 参数通过 sdb -e 传入后直接在全局作用域可用
+        // 先验证所有参数
+        validateParameters();
+
+        switch (mode) {
+            case 'show':
+                executeShow();
+                break;
+            case 'check':
+                executeCheck();
+                break;
+            case 'init':
+                executeInit();
+                break;
+            case 'start_maintenance':
+                executeStartMaintenance();
+                break;
+            case 'stop_maintenance':
+                executeStopMaintenance();
+                break;
+            case 'start_critical':
+                executeStartCritical();
+                break;
+            case 'stop_critical':
+                executeStopCritical();
+                break;
+            case 'restore':
+                executeRestore();
+                break;
         }
 
         disconnectFromSdb();
-        exit(0);
+        print("\n" + "=".repeat(60));
+        print("Operation completed successfully");
+        print("=".repeat(60));
 
     } catch (e) {
         disconnectFromSdb();
-        print("Error: " + e.message);
-        print(e.stack);
-        exit(1);
+        print("\n" + "Error".padEnd(15) + e.message);
+        if (e.stack) {
+            print("\nStack trace:");
+            var stackLines = e.stack.split('\n');
+            for (var i = 0; i < stackLines.length; i++) {
+                print("  " + stackLines[i]);
+            }
+        }
     }
+}
+
+// 验证 mode 参数
+function validateMode() {
+    print("Command: " + mode);
+
+    if (!mode) {
+        print("Error: No command specified");
+        print("Please provide a command using: sdb -f bin/main.js -e \"var mode='command'\"");
+        return false;
+    }
+
+    var validModes = [
+        'show', 'check', 'init', 'start_maintenance', 'stop_maintenance',
+        'start_critical', 'stop_critical', 'restore'
+    ];
+
+    if (!validModes.includes(mode)) {
+        print("Error: Unknown mode: " + mode);
+        print("Available modes: " + validModes.join(', '));
+        return false;
+    }
+
+    return true;
+}
+
+// 验证所有参数
+function validateParameters() {
+    print("\nValidating parameters...");
+    var errors = [];
+
+    // 检查必需的参数
+    switch (mode) {
+        case 'show':
+        case 'check':
+        case 'init':
+        case 'restore':
+            // 这些命令不需要 file 参数
+            break;
+
+        case 'start_maintenance':
+        case 'stop_maintenance':
+        case 'start_critical':
+        case 'stop_critical':
+            // 如果提供了 file 参数，验证文件是否存在
+            if (file && file !== "") {
+                var nodeInfo = readNodeFile(file);
+                if (!nodeInfo) {
+                    errors.push("Node information file not found or invalid: " + file);
+                }
+            }
+            break;
+    }
+
+    // 检查 location 参数（用于 stop_maintenance 和 stop_critical 的 --check 选项）
+    if (check && mode === 'stop_maintenance') {
+        if (!location) {
+            errors.push("Location parameter is required for stop_maintenance with --check option");
+        }
+    }
+
+    // 检查 check 参数是否为有效值
+    if (check !== undefined && check !== "" && check !== null) {
+        if (typeof check !== 'number' && typeof check !== 'boolean') {
+            errors.push("check parameter must be a number (1 or 0) or boolean");
+        } else if (check !== 0 && check !== 1 && check !== true && check !== false) {
+            errors.push("check parameter must be 0, 1, true, or false");
+        }
+    }
+
+    if (errors.length > 0) {
+        print("Parameter validation errors:");
+        for (var i = 0; i < errors.length; i++) {
+            print("  - " + errors[i]);
+        }
+        throw new Error("Invalid parameters");
+    }
+
+    print("Parameters are valid");
+    return true;
+}
+
+// 显示当前参数信息
+function printParameterInfo() {
+    print("\n" + "=".repeat(60));
+    print("Execution Parameters");
+    print("=".repeat(60));
+    print("  Mode:        " + mode);
+    print("  Config File: " + (c ? c : "not specified"));
+    print("  Project Root:" + (projectRoot ? projectRoot : "not specified"));
+    print("  File:        " + (file ? file : "not specified"));
+    print("  Location:    " + (l ? l : "not specified"));
+    print("  Hostnames:   " + (H ? H : "not specified"));
+    print("  Nodenames:   " + (n ? n : "not specified"));
+    print("  Domains:     " + (d ? d : "not specified"));
+    print("  Check:       " + check);
+    print("=".repeat(60));
 }
 
 // 执行 show 命令
 function executeShow() {
+    printParameterInfo();
+    print("\nExecuting show command...");
+
     var nodeInfo = readNodeFile(file);
 
     if (!connectToSdb()) {
@@ -777,6 +917,7 @@ function executeShow() {
     }
 
     var locationFile = nodeInfo ? (projectRoot + "/output/location.txt") : file;
+    print("\nRunning location analysis...");
     dc.locationAnalyze({}, locationFile);
     disconnectFromSdb();
 
@@ -793,10 +934,15 @@ function executeShow() {
     }
 
     print("\n" + "=".repeat(60));
+    print("Analysis completed successfully");
+    print("=".repeat(60));
 }
 
 // 执行 check 命令
 function executeCheck() {
+    printParameterInfo();
+    print("\nExecuting check command...");
+
     var nodeInfo = readNodeFile(file);
 
     if (!connectToSdb()) {
@@ -804,6 +950,7 @@ function executeCheck() {
     }
 
     var locationFile = nodeInfo ? (projectRoot + "/output/location.txt") : file;
+    print("\nRunning location analysis...");
     dc.locationAnalyze({}, locationFile);
     disconnectFromSdb();
 
@@ -818,7 +965,9 @@ function executeCheck() {
 
         // 读取配置文件中的期望Location
         if (initLocationObject) {
-            print("\nExpected Locations:");
+            print("\n" + "=".repeat(60));
+            print("Expected Locations from Config File");
+            print("=".repeat(60));
             print(JSON.stringify(initLocationObject, null, 2));
         }
     } else {
@@ -826,221 +975,503 @@ function executeCheck() {
     }
 
     print("\n" + "=".repeat(60));
+    print("Check completed successfully");
+    print("=".repeat(60));
 }
 
 // 执行 init 命令
 function executeInit() {
-    print("Initializing location configuration...");
+    printParameterInfo();
+    print("\nExecuting init command...");
 
     var locations = initLocationObject;
     if (!locations || Object.keys(locations).length === 0) {
         throw new Error("initLocationObject is not configured in config.js");
     }
 
+    print("\nConfiguration Summary:");
+    print("  Total Locations: " + Object.keys(locations).length);
+    for (var location in locations) {
+        var hosts = locations[location];
+        print("    - " + location + ": " + hosts.length + " host(s)");
+    }
+
+    if (activeLocation && activeLocation !== "") {
+        print("  Active Location: " + activeLocation);
+    } else {
+        print("  Active Location: Not set");
+    }
+
+    print("\nInitializing location configuration...");
+
     var count = 0;
     for (var location in locations) {
         var hosts = locations[location];
         if (Array.isArray(hosts) && hosts.length > 0) {
             var firstHost = hosts[0];
-            print("Setting location for host " + firstHost + " -> " + location);
+            print("\n  Setting location for host " + firstHost + " -> " + location);
 
             try {
                 dc.setLocation(firstHost, location);
                 count++;
             } catch (e) {
-                print("Warning: Failed to set location for " + firstHost + ": " + e.message);
+                print("  Warning: Failed to set location for " + firstHost + ": " + e.message);
             }
         }
     }
 
     if (count > 0) {
-        print("\nSuccessfully set locations for " + count + " host(s)");
+        print("\n" + "=".repeat(60));
+        print("Successfully set locations for " + count + " host(s)");
+        print("=".repeat(60));
+
+        if (activeLocation && activeLocation !== "") {
+            print("\nSetting active location: " + activeLocation);
+            try {
+                dc.setActiveLocation(activeLocation);
+                print("Active location set successfully: " + activeLocation);
+            } catch (e) {
+                print("Warning: Failed to set active location: " + e.message);
+            }
+        }
     } else {
         throw new Error("No locations were set");
     }
 
-    if (activeLocation && activeLocation !== "") {
-        print("Setting active location: " + activeLocation);
-        dc.setActiveLocation(activeLocation);
-    }
+    print("\nInitialization completed successfully");
 }
 
 // 执行 start_maintenance 命令
 function executeStartMaintenance() {
+    printParameterInfo();
+    print("\nExecuting start_maintenance command...");
+
+    print("\nConfiguration:");
+    print("  MinKeepTime: " + minKeepTime + " minutes");
+    print("  MaxKeepTime: " + maxKeepTime + " minutes");
+    print("  Enforce: " + enforceMaintenance);
+
     var nodeInfo = readNodeFile(file);
+
+    var locationsCount = 0;
+    var hostnamesCount = 0;
+    var nodenamesCount = 0;
+    var domainsCount = 0;
 
     if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
-            dc.startMaintenanceMode({
-                Location: nodeInfo.locations[i],
-                MinKeepTime: minKeepTime,
-                MaxKeepTime: maxKeepTime
-            });
-        }
-    }
-    if (hostnames && nodeInfo) {
-        for (var i = 0; i < nodeInfo.hostnames.length; i++) {
-            dc.startMaintenanceMode({
-                Hostname: nodeInfo.hostnames[i],
-                MinKeepTime: minKeepTime,
-                MaxKeepTime: maxKeepTime
-            });
-        }
-    }
-    if (nodenames && nodeInfo) {
-        for (var i = 0; i < nodeInfo.nodenames.length; i++) {
-            dc.startMaintenanceMode({
-                NodeName: nodeInfo.nodenames[i],
-                MinKeepTime: minKeepTime,
-                MaxKeepTime: maxKeepTime
-            });
-        }
-    }
-    if (domains && nodeInfo) {
-        for (var i = 0; i < nodeInfo.domains.length; i++) {
-            dc.startMaintenanceMode({
-                Domain: nodeInfo.domains[i],
-                MinKeepTime: minKeepTime,
-                MaxKeepTime: maxKeepTime
-            });
+            var loc = nodeInfo.locations[i];
+            print("\n  Starting MaintenanceMode for Location: " + loc);
+            try {
+                dc.startMaintenanceMode({
+                    Location: loc,
+                    MinKeepTime: minKeepTime,
+                    MaxKeepTime: maxKeepTime
+                });
+                locationsCount++;
+            } catch (e) {
+                print("  Warning: Failed to start MaintenanceMode for location " + loc + ": " + e.message);
+            }
         }
     }
 
-    print("MaintenanceMode started");
+    if (hostnames && nodeInfo) {
+        for (var i = 0; i < nodeInfo.hostnames.length; i++) {
+            var host = nodeInfo.hostnames[i];
+            print("\n  Starting MaintenanceMode for Host: " + host);
+            try {
+                dc.startMaintenanceMode({
+                    Hostname: host,
+                    MinKeepTime: minKeepTime,
+                    MaxKeepTime: maxKeepTime
+                });
+                hostnamesCount++;
+            } catch (e) {
+                print("  Warning: Failed to start MaintenanceMode for host " + host + ": " + e.message);
+            }
+        }
+    }
+
+    if (nodenames && nodeInfo) {
+        for (var i = 0; i < nodeInfo.nodenames.length; i++) {
+            var node = nodeInfo.nodenames[i];
+            print("\n  Starting MaintenanceMode for Node: " + node);
+            try {
+                dc.startMaintenanceMode({
+                    NodeName: node,
+                    MinKeepTime: minKeepTime,
+                    MaxKeepTime: maxKeepTime
+                });
+                nodenamesCount++;
+            } catch (e) {
+                print("  Warning: Failed to start MaintenanceMode for node " + node + ": " + e.message);
+            }
+        }
+    }
+
+    if (domains && nodeInfo) {
+        for (var i = 0; i < nodeInfo.domains.length; i++) {
+            var domain = nodeInfo.domains[i];
+            print("\n  Starting MaintenanceMode for Domain: " + domain);
+            try {
+                dc.startMaintenanceMode({
+                    Domain: domain,
+                    MinKeepTime: minKeepTime,
+                    MaxKeepTime: maxKeepTime
+                });
+                domainsCount++;
+            } catch (e) {
+                print("  Warning: Failed to start MaintenanceMode for domain " + domain + ": " + e.message);
+            }
+        }
+    }
+
+    print("\n" + "=".repeat(60));
+    print("MaintenanceMode Started");
+    print("=".repeat(60));
+    print("  Locations:  " + locationsCount);
+    print("  Hostnames:  " + hostnamesCount);
+    print("  Nodenames:  " + nodenamesCount);
+    print("  Domains:    " + domainsCount);
+    print("  Total:      " + (locationsCount + hostnamesCount + nodenamesCount + domainsCount));
+    print("=".repeat(60));
 }
 
 // 执行 stop_maintenance 命令
 function executeStopMaintenance() {
+    printParameterInfo();
+    print("\nExecuting stop_maintenance command...");
+
     var nodeInfo = readNodeFile(file);
 
+    var locationsCount = 0;
+    var hostnamesCount = 0;
+    var nodenamesCount = 0;
+    var domainsCount = 0;
+
+    // 检查节点状态（如果指定了 --check）
     if (check) {
-        print("Checking node status before stopping MaintenanceMode...");
+        print("\nChecking node status before stopping MaintenanceMode...");
+        print("Mode: maintenance");
         if (!checkNodes("maintenance")) {
+            print("\n" + "=".repeat(60));
             print("Error: Some nodes are not OK, cannot stop MaintenanceMode");
-            exit(1);
+            print("=".repeat(60));
+            throw new Error("Some nodes are not OK, cannot stop MaintenanceMode");
         }
+        print("Node status check passed - all nodes are OK");
     }
 
     if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
-            dc.stopMaintenanceMode({ Location: nodeInfo.locations[i] });
-        }
-    }
-    if (hostnames && nodeInfo) {
-        for (var i = 0; i < nodeInfo.hostnames.length; i++) {
-            dc.stopMaintenanceMode({ Hostname: nodeInfo.hostnames[i] });
-        }
-    }
-    if (nodenames && nodeInfo) {
-        for (var i = 0; i < nodeInfo.nodenames.length; i++) {
-            dc.stopMaintenanceMode({ NodeName: nodeInfo.nodenames[i] });
-        }
-    }
-    if (domains && nodeInfo) {
-        for (var i = 0; i < nodeInfo.domains.length; i++) {
-            dc.stopMaintenanceMode({ Domain: nodeInfo.domains[i] });
+            var loc = nodeInfo.locations[i];
+            print("\n  Stopping MaintenanceMode for Location: " + loc);
+            try {
+                dc.stopMaintenanceMode({ Location: loc });
+                locationsCount++;
+            } catch (e) {
+                print("  Warning: Failed to stop MaintenanceMode for location " + loc + ": " + e.message);
+            }
         }
     }
 
-    print("MaintenanceMode stopped");
+    if (hostnames && nodeInfo) {
+        for (var i = 0; i < nodeInfo.hostnames.length; i++) {
+            var host = nodeInfo.hostnames[i];
+            print("\n  Stopping MaintenanceMode for Host: " + host);
+            try {
+                dc.stopMaintenanceMode({ Hostname: host });
+                hostnamesCount++;
+            } catch (e) {
+                print("  Warning: Failed to stop MaintenanceMode for host " + host + ": " + e.message);
+            }
+        }
+    }
+
+    if (nodenames && nodeInfo) {
+        for (var i = 0; i < nodeInfo.nodenames.length; i++) {
+            var node = nodeInfo.nodenames[i];
+            print("\n  Stopping MaintenanceMode for Node: " + node);
+            try {
+                dc.stopMaintenanceMode({ NodeName: node });
+                nodenamesCount++;
+            } catch (e) {
+                print("  Warning: Failed to stop MaintenanceMode for node " + node + ": " + e.message);
+            }
+        }
+    }
+
+    if (domains && nodeInfo) {
+        for (var i = 0; i < nodeInfo.domains.length; i++) {
+            var domain = nodeInfo.domains[i];
+            print("\n  Stopping MaintenanceMode for Domain: " + domain);
+            try {
+                dc.stopMaintenanceMode({ Domain: domain });
+                domainsCount++;
+            } catch (e) {
+                print("  Warning: Failed to stop MaintenanceMode for domain " + domain + ": " + e.message);
+            }
+        }
+    }
+
+    print("\n" + "=".repeat(60));
+    print("MaintenanceMode Stopped");
+    print("=".repeat(60));
+    print("  Locations:  " + locationsCount);
+    print("  Hostnames:  " + hostnamesCount);
+    print("  Nodenames:  " + nodenamesCount);
+    print("  Domains:    " + domainsCount);
+    print("  Total:      " + (locationsCount + hostnamesCount + nodenamesCount + domainsCount));
+    print("=".repeat(60));
 }
 
 // 执行 start_critical 命令
 function executeStartCritical() {
+    printParameterInfo();
+    print("\nExecuting start_critical command...");
+
+    if (enforceCritical) {
+        print("\nWARNING: CriticalMode can cause data rollback and data loss!");
+        print("Make sure you understand the risks before proceeding.");
+    }
+
+    print("\nConfiguration:");
+    print("  MinKeepTime: " + minKeepTime + " minutes");
+    print("  MaxKeepTime: " + maxKeepTime + " minutes");
+    print("  Enforce: " + enforceCritical);
+
     var nodeInfo = readNodeFile(file);
+
+    var locationsCount = 0;
+    var hostnamesCount = 0;
+    var nodenamesCount = 0;
+    var domainsCount = 0;
 
     if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
-            dc.startCriticalMode({
-                Location: nodeInfo.locations[i],
-                MinKeepTime: minKeepTime,
-                MaxKeepTime: maxKeepTime
-            });
-        }
-    }
-    if (hostnames && nodeInfo) {
-        for (var i = 0; i < nodeInfo.hostnames.length; i++) {
-            dc.startCriticalMode({
-                Hostname: nodeInfo.hostnames[i],
-                MinKeepTime: minKeepTime,
-                MaxKeepTime: maxKeepTime
-            });
-        }
-    }
-    if (nodenames && nodeInfo) {
-        for (var i = 0; i < nodeInfo.nodenames.length; i++) {
-            dc.startCriticalMode({
-                NodeName: nodeInfo.nodenames[i],
-                MinKeepTime: minKeepTime,
-                MaxKeepTime: maxKeepTime
-            });
-        }
-    }
-    if (domains && nodeInfo) {
-        for (var i = 0; i < nodeInfo.domains.length; i++) {
-            dc.startCriticalMode({
-                Domain: nodeInfo.domains[i],
-                MinKeepTime: minKeepTime,
-                MaxKeepTime: maxKeepTime
-            });
+            var loc = nodeInfo.locations[i];
+            print("\n  Starting CriticalMode for Location: " + loc);
+            try {
+                dc.startCriticalMode({
+                    Location: loc,
+                    MinKeepTime: minKeepTime,
+                    MaxKeepTime: maxKeepTime
+                });
+                locationsCount++;
+            } catch (e) {
+                print("  Warning: Failed to start CriticalMode for location " + loc + ": " + e.message);
+            }
         }
     }
 
-    print("CriticalMode started");
+    if (hostnames && nodeInfo) {
+        for (var i = 0; i < nodeInfo.hostnames.length; i++) {
+            var host = nodeInfo.hostnames[i];
+            print("\n  Starting CriticalMode for Host: " + host);
+            try {
+                dc.startCriticalMode({
+                    Hostname: host,
+                    MinKeepTime: minKeepTime,
+                    MaxKeepTime: maxKeepTime
+                });
+                hostnamesCount++;
+            } catch (e) {
+                print("  Warning: Failed to start CriticalMode for host " + host + ": " + e.message);
+            }
+        }
+    }
+
+    if (nodenames && nodeInfo) {
+        for (var i = 0; i < nodeInfo.nodenames.length; i++) {
+            var node = nodeInfo.nodenames[i];
+            print("\n  Starting CriticalMode for Node: " + node);
+            try {
+                dc.startCriticalMode({
+                    NodeName: node,
+                    MinKeepTime: minKeepTime,
+                    MaxKeepTime: maxKeepTime
+                });
+                nodenamesCount++;
+            } catch (e) {
+                print("  Warning: Failed to start CriticalMode for node " + node + ": " + e.message);
+            }
+        }
+    }
+
+    if (domains && nodeInfo) {
+        for (var i = 0; i < nodeInfo.domains.length; i++) {
+            var domain = nodeInfo.domains[i];
+            print("\n  Starting CriticalMode for Domain: " + domain);
+            try {
+                dc.startCriticalMode({
+                    Domain: domain,
+                    MinKeepTime: minKeepTime,
+                    MaxKeepTime: maxKeepTime
+                });
+                domainsCount++;
+            } catch (e) {
+                print("  Warning: Failed to start CriticalMode for domain " + domain + ": " + e.message);
+            }
+        }
+    }
+
+    print("\n" + "=".repeat(60));
+    print("CriticalMode Started");
+    print("=".repeat(60));
+    print("  Locations:  " + locationsCount);
+    print("  Hostnames:  " + hostnamesCount);
+    print("  Nodenames:  " + nodenamesCount);
+    print("  Domains:    " + domainsCount);
+    print("  Total:      " + (locationsCount + hostnamesCount + nodenamesCount + domainsCount));
+    print("=".repeat(60));
 }
 
 // 执行 stop_critical 命令
 function executeStopCritical() {
+    printParameterInfo();
+    print("\nExecuting stop_critical command...");
+
     var nodeInfo = readNodeFile(file);
 
+    var locationsCount = 0;
+    var hostnamesCount = 0;
+    var nodenamesCount = 0;
+    var domainsCount = 0;
+
+    // 检查节点状态（如果指定了 --check）
     if (check) {
-        print("Checking node status before stopping CriticalMode...");
+        print("\nChecking node status before stopping CriticalMode...");
+        print("Mode: critical");
         if (!checkNodes("critical")) {
+            print("\n" + "=".repeat(60));
             print("Error: Some nodes are not OK, cannot stop CriticalMode");
-            exit(1);
+            print("=".repeat(60));
+            throw new Error("Some nodes are not OK, cannot stop CriticalMode");
         }
+        print("Node status check passed - all nodes are OK");
     }
 
     if (location && nodeInfo) {
         for (var i = 0; i < nodeInfo.locations.length; i++) {
-            dc.stopCriticalMode({ Location: nodeInfo.locations[i] });
-        }
-    }
-    if (hostnames && nodeInfo) {
-        for (var i = 0; i < nodeInfo.hostnames.length; i++) {
-            dc.stopCriticalMode({ Hostname: nodeInfo.hostnames[i] });
-        }
-    }
-    if (nodenames && nodeInfo) {
-        for (var i = 0; i < nodeInfo.nodenames.length; i++) {
-            dc.stopCriticalMode({ NodeName: nodeInfo.nodenames[i] });
-        }
-    }
-    if (domains && nodeInfo) {
-        for (var i = 0; i < nodeInfo.domains.length; i++) {
-            dc.stopCriticalMode({ Domain: nodeInfo.domains[i] });
+            var loc = nodeInfo.locations[i];
+            print("\n  Stopping CriticalMode for Location: " + loc);
+            try {
+                dc.stopCriticalMode({ Location: loc });
+                locationsCount++;
+            } catch (e) {
+                print("  Warning: Failed to stop CriticalMode for location " + loc + ": " + e.message);
+            }
         }
     }
 
-    print("CriticalMode stopped");
+    if (hostnames && nodeInfo) {
+        for (var i = 0; i < nodeInfo.hostnames.length; i++) {
+            var host = nodeInfo.hostnames[i];
+            print("\n  Stopping CriticalMode for Host: " + host);
+            try {
+                dc.stopCriticalMode({ Hostname: host });
+                hostnamesCount++;
+            } catch (e) {
+                print("  Warning: Failed to stop CriticalMode for host " + host + ": " + e.message);
+            }
+        }
+    }
+
+    if (nodenames && nodeInfo) {
+        for (var i = 0; i < nodeInfo.nodenames.length; i++) {
+            var node = nodeInfo.nodenames[i];
+            print("\n  Stopping CriticalMode for Node: " + node);
+            try {
+                dc.stopCriticalMode({ NodeName: node });
+                nodenamesCount++;
+            } catch (e) {
+                print("  Warning: Failed to stop CriticalMode for node " + node + ": " + e.message);
+            }
+        }
+    }
+
+    if (domains && nodeInfo) {
+        for (var i = 0; i < nodeInfo.domains.length; i++) {
+            var domain = nodeInfo.domains[i];
+            print("\n  Stopping CriticalMode for Domain: " + domain);
+            try {
+                dc.stopCriticalMode({ Domain: domain });
+                domainsCount++;
+            } catch (e) {
+                print("  Warning: Failed to stop CriticalMode for domain " + domain + ": " + e.message);
+            }
+        }
+    }
+
+    print("\n" + "=".repeat(60));
+    print("CriticalMode Stopped");
+    print("=".repeat(60));
+    print("  Locations:  " + locationsCount);
+    print("  Hostnames:  " + hostnamesCount);
+    print("  Nodenames:  " + nodenamesCount);
+    print("  Domains:    " + domainsCount);
+    print("  Total:      " + (locationsCount + hostnamesCount + nodenamesCount + domainsCount));
+    print("=".repeat(60));
 }
 
 // 执行 restore 命令
 function executeRestore() {
-    print("Restoring cluster...");
+    printParameterInfo();
+    print("\nExecuting restore command...");
 
+    print("\n" + "=".repeat(60));
+    print("Cluster Restore Operation");
+    print("=".repeat(60));
+
+    print("\nStep 1: Checking cluster health status...");
     if (!checkClusterHealth()) {
         print("Warning: Cluster is not in healthy state");
+        print("  Some nodes may have issues. Continue at your own risk.");
+    } else {
+        print("Cluster health status: OK - all nodes are healthy");
     }
 
-    print("Stopping all MaintenanceMode...");
-    stopAllMaintenanceMode();
+    print("\nStep 2: Stopping all MaintenanceMode...");
+    var maintenanceCount = stopAllMaintenanceMode();
+    if (maintenanceCount > 0) {
+        print("  Stopped " + maintenanceCount + " MaintenanceMode instance(s)");
+    } else {
+        print("  No MaintenanceMode instances found");
+    }
 
-    print("Stopping all CriticalMode...");
-    stopAllCriticalMode();
+    print("\nStep 3: Stopping all CriticalMode...");
+    var criticalCount = stopAllCriticalMode();
+    if (criticalCount > 0) {
+        print("  Stopped " + criticalCount + " CriticalMode instance(s)");
+    } else {
+        print("  No CriticalMode instances found");
+    }
 
-    print("Cluster restored successfully");
+    print("\nStep 4: Verifying cluster restoration...");
+    var totalModes = maintenanceCount + criticalCount;
+    if (totalModes > 0) {
+        var modeInfo = getGroupModeInfo();
+        if (modeInfo.length === 0) {
+            print("  Cluster restored successfully - all modes cleared");
+        } else {
+            print("  Warning: Some modes still active");
+            print("  Active modes:");
+            for (var i = 0; i < modeInfo.length; i++) {
+                print("    - " + modeInfo[i].GroupName + " [" + modeInfo[i].GroupMode + "]");
+            }
+        }
+    } else {
+        print("  Cluster already in normal state - no modes to clear");
+    }
+
+    print("\n" + "=".repeat(60));
+    print("Cluster Restore Completed");
+    print("=".repeat(60));
+    print("  MaintenanceMode stopped: " + maintenanceCount);
+    print("  CriticalMode stopped: " + criticalCount);
+    print("  Total modes cleared: " + totalModes);
+    print("=".repeat(60));
 }
 
 // 调用主函数
-main(Array.prototype.slice.call(arguments));
+main();

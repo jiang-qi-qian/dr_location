@@ -741,7 +741,7 @@ function main() {
             print("\nStack trace:");
             var stackLines = e.stack.split('\n');
             for (var i = 0; i < stackLines.length; i++) {
-                print("  " + stackLines[i]);
+                print("\n  " + stackLines[i]);
             }
         }
         print("\n");
@@ -817,6 +817,9 @@ function validateParameters() {
         } else if (check !== 0 && check !== 1 && check !== true && check !== false) {
             errors.push("check parameter must be 0, 1, true, or false");
         }
+    } else if (typeof check === 'undefined') {
+        // 如果 check 未定义，默认值为 0（不检查）
+        check = 0;
     }
 
     if (errors.length > 0) {

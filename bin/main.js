@@ -794,7 +794,7 @@ function validateParameters() {
         case 'start_critical':
         case 'stop_critical':
             // 如果提供了 file 参数，验证文件是否存在
-            if (file && file !== "") {
+            if (typeof file !== 'undefined' && file) {
                 var nodeInfo = readNodeFile(file);
                 if (!nodeInfo) {
                     errors.push("Node information file not found or invalid: " + file);
@@ -852,15 +852,19 @@ function executeShow() {
     printParameterInfo();
     print("\nExecuting show command...");
 
-    var nodeInfo = typeof file !== 'undefined' ? readNodeFile(file) : null;
+    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
 
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
     }
 
-    var locationFile = nodeInfo ? (projectRoot + "/output/location.txt") : file;
+    var locationFile = (nodeInfo && typeof projectRoot !== 'undefined' && projectRoot) ? (projectRoot + "/output/location.txt") : (typeof file !== 'undefined' ? file : null);
     print("\nRunning location analysis...");
-    dc.locationAnalyze({}, locationFile);
+    if (locationFile) {
+        dc.locationAnalyze({}, locationFile);
+    } else {
+        dc.locationAnalyze({}, null);
+    }
 
     print("\n" + separator);
     print("Location Information");
@@ -885,15 +889,19 @@ function executeCheck() {
     printParameterInfo();
     print("\nExecuting check command...");
 
-    var nodeInfo = typeof file !== 'undefined' ? readNodeFile(file) : null;
+    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
 
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
     }
 
-    var locationFile = nodeInfo ? (projectRoot + "/output/location.txt") : file;
+    var locationFile = (nodeInfo && typeof projectRoot !== 'undefined' && projectRoot) ? (projectRoot + "/output/location.txt") : (typeof file !== 'undefined' ? file : null);
     print("\nRunning location analysis...");
-    dc.locationAnalyze({}, locationFile);
+    if (locationFile) {
+        dc.locationAnalyze({}, locationFile);
+    } else {
+        dc.locationAnalyze({}, null);
+    }
 
     print("\n" + separator);
     print("Location Check Results");

@@ -108,7 +108,7 @@ var repeatStr = function(str, count) {
 };
 
 // 常量：重复的等号，用于分隔线
-var separator = repeatStr("=", 60);
+var separator = repeatStr("=", 20);
 
 // 获取 Location 分析结果
 function analyzeLocation(locationFile) {
@@ -734,7 +734,7 @@ function main() {
         print("\n" + separator);
         print("Operation completed successfully");
         print(separator);
-
+        print("\n");
     } catch (e) {
         print("\nError" + "              " + e.message);
         if (e.stack) {
@@ -744,6 +744,7 @@ function main() {
                 print("  " + stackLines[i]);
             }
         }
+        print("\n");
     } finally {
         // 统一在函数结束时释放连接
         disconnectFromSdb();

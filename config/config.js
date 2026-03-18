@@ -5,8 +5,8 @@
 sdbCoord = "localhost:11810"
 sdbUser = "sdbadmin"
 sdbPassword = "sdbadmin"
-sdbToken = "sequoiadb"
-sdbCipherFile = "/home/sdbadmin/passwd"
+sdbToken = ""
+sdbCipherFile = ""
 
 // ========================================
 // 配置集群 Location 信息

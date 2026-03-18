@@ -199,7 +199,7 @@ function checkNodes(mode) {
                         // 检查节点状态
                         if (nodeObj.Status && nodeObj.Status !== "OK") {
                             hasError = true;
-                            print("  ✗ " + nodeObj.NodeName + ": " + nodeObj.Status);
+                            print("\n  ✗ " + nodeObj.NodeName + ": " + nodeObj.Status);
                         }
 
                         // 显示运行状态信息（如果有）
@@ -232,7 +232,7 @@ function stopAllMaintenanceMode() {
 
         for (var i = 0; i < modes.length; i++) {
             if (modes[i].GroupMode === "maintenance") {
-                print("Disabling MaintenanceMode for group: " + modes[i].GroupName);
+                print("\nDisabling MaintenanceMode for group: " + modes[i].GroupName);
                 dc.stopMaintenanceMode({ GroupName: modes[i].GroupName });
                 count++;
             }
@@ -258,7 +258,7 @@ function stopAllCriticalMode() {
 
         for (var i = 0; i < modes.length; i++) {
             if (modes[i].GroupMode === "critical") {
-                print("Disabling CriticalMode for group: " + modes[i].GroupName);
+                print("\nDisabling CriticalMode for group: " + modes[i].GroupName);
                 dc.stopCriticalMode({ GroupName: modes[i].GroupName });
                 count++;
             }
@@ -286,7 +286,7 @@ function checkClusterHealth() {
         }
         cursor.close();
 
-        print("Found " + totalGroups + " groups in the cluster");
+        print("\nFound " + totalGroups + " groups in the cluster\n");
 
         // 检查异常节点
         var cursor = db.snapshot(SDB_SNAP_CONFIGS, { Type: "group" });
@@ -383,7 +383,7 @@ function printLocationInfo(locationInfo, groupModeInfo) {
     locations.sort();
 
     if (locations.length === 0) {
-        print("No locations configured.");
+        print("\nNo locations configured.");
         return;
     }
 
@@ -427,7 +427,7 @@ function printLocationInfo(locationInfo, groupModeInfo) {
 // 打印 GroupMode 信息表格
 function printGroupModeInfo(groupModeInfo, maxKeepTime) {
     if (groupModeInfo.length === 0) {
-        print("No GroupMode information available.");
+        print("\nNo GroupMode information available.");
         return;
     }
 
@@ -498,11 +498,12 @@ function printLocationAnalyzeResult(locationFile, groupModeInfo, maxKeepTime) {
     print("\n" + separator);
     print("Location Analysis Result - " + getCurrentTimestamp());
     print(separator);
+    print("\n");
 
     // 读取分析结果
     var resultFile = new File(locationFile);
     if (!resultFile.exists()) {
-        print("Error: Location file not found: " + locationFile);
+        print("\nError: Location file not found: " + locationFile);
         return;
     }
 
@@ -528,6 +529,7 @@ function printLocationAnalyzeResult(locationFile, groupModeInfo, maxKeepTime) {
     print("  Matched Group Num: " + result.MatchedGroupNum);
     print("  Matched Node Num:  " + result.MatchedNodeNum);
     print("  Active Location:   " + (result.ActiveLocation ? result.ActiveLocation : "Not configured"));
+    print("\n");
 
     print("\n" + separator);
 }
@@ -706,14 +708,14 @@ function main() {
         // 初始化连接
         if (!connectToSdb()) {
             print("\nError" + "              " + "Failed to connect to SequoiaDB");
-            print("Please check your connection configuration in config.js");
+            print("\nPlease check your connection configuration in config.js");
             return;
         }
 
         print("\nConnected to SequoiaDB successfully");
         print("Coordinate: " + sdbCoord);
         print("User: " + sdbUser);
-        print();
+        print("\n");
 
         // 执行对应命令
         // 参数通过 sdb -e 传入后直接在全局作用域可用
@@ -767,10 +769,10 @@ function main() {
 
 // 验证 mode 参数
 function validateMode() {
-    print("Command: " + mode);
+    print("\nCommand: " + mode);
 
     if (!mode) {
-        print("Error: No command specified");
+        print("\nError: No command specified");
         print("Please provide a command using: sdb -f bin/main.js -e \"var mode='command'\"");
         return false;
     }
@@ -781,7 +783,7 @@ function validateMode() {
     ];
 
     if (-1 == validModes.indexOf(mode)) {
-        print("Error: Unknown mode: " + mode);
+        print("\nError: Unknown mode: " + mode);
         print("Available modes: " + validModes.join(', '));
         return false;
     }
@@ -834,14 +836,14 @@ function validateParameters() {
     }
 
     if (errors.length > 0) {
-        print("Parameter validation errors:");
+        print("\nParameter validation errors:");
         for (var i = 0; i < errors.length; i++) {
             print("  - " + errors[i]);
         }
         throw new Error("Invalid parameters");
     }
 
-    print("Parameters are valid");
+    print("\nParameters are valid");
     return true;
 }
 
@@ -886,8 +888,9 @@ function executeShow() {
     if (displayFile.exists()) {
         print(displayFile.read());
         displayFile.close();
+        print("\n");
     } else {
-        print("Warning: Location file not found: " + locationFile);
+        print("\nWarning: Location file not found: " + locationFile);
     }
 
     print("\n" + separator);
@@ -928,7 +931,7 @@ function executeCheck() {
             print(JSON.stringify(initLocationObject, null, 2));
         }
     } else {
-        print("Warning: Location file not found: " + locationFile);
+        print("\nWarning: Location file not found: " + locationFile);
     }
 
     print("\n" + separator);
@@ -986,9 +989,9 @@ function executeInit() {
             print("\nSetting active location: " + activeLocation);
             try {
                 dc.setActiveLocation(activeLocation);
-                print("Active location set successfully: " + activeLocation);
+                print("\nActive location set successfully: " + activeLocation);
             } catch (e) {
-                print("Warning: Failed to set active location: " + e.message);
+                print("\nWarning: Failed to set active location: " + e.message);
             }
         }
     } else {

@@ -110,21 +110,6 @@ var repeatStr = function(str, count) {
 // 常量：重复的等号，用于分隔线
 var separator = repeatStr("=", 20);
 
-// 获取 Location 分析结果
-function analyzeLocation(locationFile) {
-    if (!connectToSdb()) {
-        throw new Error("Failed to connect to SequoiaDB");
-    }
-
-    try {
-        dc.locationAnalyze({}, locationFile);
-        return true;
-    } catch (e) {
-        print("Error in location analyze: " + e.message);
-        throw e;
-    }
-}
-
 // 获取 Location 分析结果（不保存到文件）
 function analyzeLocationToObj() {
     if (!connectToSdb()) {
@@ -396,13 +381,16 @@ function printLocationInfo(locationInfo, groupModeInfo) {
         var isActive = false;
         var groupStatus = "";
 
-        for (var j = 0; j < locationInfo.length; j++) {
-            if (locationInfo[j].LocationName === locName) {
-                isActive = (locationInfo[j].ActiveStatus === "All");
-                groupStatus = locationInfo[j].GroupStatus;
-                break;
-            }
+        // 使用游标方式查找 Location 信息
+        var cursor = new org.bson.BasicDBObject();
+        cursor.put("LocationName", locName);
+        var locCursor = locationInfo.find(cursor);
+        while (locCursor.hasNext()) {
+            var locData = locCursor.next();
+            isActive = (locData.ActiveStatus === "All");
+            groupStatus = locData.GroupStatus;
         }
+        locCursor.close();
 
         var statusStr = locName;
         if (isActive) {

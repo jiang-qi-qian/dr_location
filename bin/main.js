@@ -835,16 +835,16 @@ function printParameterInfo() {
     print("\n" + separator);
     print("Execution Parameters");
     print(separator);
-    print("  Mode:        " + (mode ? mode : "not specified"));
-    print("  Config File: " + (typeof c !== 'undefined' ? c : "not specified"));
-    print("  Project Root:" + (typeof projectRoot !== 'undefined' ? projectRoot : "not specified"));
-    print("  File:        " + (typeof file !== 'undefined' ? file : "not specified"));
-    print("  Location:    " + (typeof l !== 'undefined' ? l : "not specified"));
-    print("  Hostnames:   " + (typeof H !== 'undefined' ? H : "not specified"));
-    print("  Nodenames:   " + (typeof n !== 'undefined' ? n : "not specified"));
-    print("  Domains:     " + (typeof d !== 'undefined' ? d : "not specified"));
-    print("  Check:       " + (typeof check !== 'undefined' ? check : "not specified"));
-    print(separator);
+    print("\n  Mode:        " + (mode ? mode : "not specified"));
+    print("\n  Config File: " + (typeof c !== 'undefined' ? c : "not specified"));
+    print("\n  Project Root:" + (typeof projectRoot !== 'undefined' ? projectRoot : "not specified"));
+    print("\n  File:        " + (typeof file !== 'undefined' ? file : "not specified"));
+    print("\n  Location:    " + (typeof l !== 'undefined' ? l : "not specified"));
+    print("\n  Hostnames:   " + (typeof H !== 'undefined' ? H : "not specified"));
+    print("\n  Nodenames:   " + (typeof n !== 'undefined' ? n : "not specified"));
+    print("\n  Domains:     " + (typeof d !== 'undefined' ? d : "not specified"));
+    print("\n  Check:       " + (typeof check !== 'undefined' ? check : "not specified"));
+    print("\n" + separator);
 }
 
 // 执行 show 命令
@@ -852,7 +852,7 @@ function executeShow() {
     printParameterInfo();
     print("\nExecuting show command...");
 
-    var nodeInfo = readNodeFile(file);
+    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
 
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
@@ -885,7 +885,7 @@ function executeCheck() {
     printParameterInfo();
     print("\nExecuting check command...");
 
-    var nodeInfo = readNodeFile(file);
+    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
 
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
@@ -992,7 +992,7 @@ function executeStartMaintenance() {
     print("  MaxKeepTime: " + maxKeepTime + " minutes");
     print("  Enforce: " + enforceMaintenance);
 
-    var nodeInfo = readNodeFile(file);
+    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
 
     var locationsCount = 0;
     var hostnamesCount = 0;
@@ -1131,7 +1131,7 @@ function executeStopMaintenance() {
     printParameterInfo();
     print("\nExecuting stop_maintenance command...");
 
-    var nodeInfo = readNodeFile(file);
+    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
 
     var locationsCount = 0;
     var hostnamesCount = 0;
@@ -1261,7 +1261,7 @@ function executeStartCritical() {
     print("  MaxKeepTime: " + maxKeepTime + " minutes");
     print("  Enforce: " + enforceCritical);
 
-    var nodeInfo = readNodeFile(file);
+    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
 
     var locationsCount = 0;
     var hostnamesCount = 0;
@@ -1400,7 +1400,7 @@ function executeStopCritical() {
     printParameterInfo();
     print("\nExecuting stop_critical command...");
 
-    var nodeInfo = readNodeFile(file);
+    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
 
     var locationsCount = 0;
     var hostnamesCount = 0;

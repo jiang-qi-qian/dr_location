@@ -852,31 +852,20 @@ function executeShow() {
     printParameterInfo();
     print("\nExecuting show command...");
 
-    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
-
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
     }
 
-    var locationFile = (nodeInfo && typeof projectRoot !== 'undefined' && projectRoot) ? (projectRoot + "/output/location.txt") : (typeof file !== 'undefined' ? file : null);
     print("\nRunning location analysis...");
-    if (locationFile) {
-        dc.locationAnalyze({}, locationFile);
-    } else {
-        dc.locationAnalyze({}, null);
-    }
+    var locationResult = analyzeLocationToObj();
 
     print("\n" + separator);
     print("Location Information");
     print(separator);
 
-    var displayFile = new File(locationFile);
-    if (displayFile.exist()) {
-        print(displayFile.read());
-        displayFile.close();
-        print("\n");
-    } else {
-        print("\nWarning: Location file not found: " + locationFile);
+    // 打印 Location 信息
+    if (locationResult && locationResult.LocationInfo) {
+        printLocationInfo(locationResult.LocationInfo, null);
     }
 
     print("\n" + separator);
@@ -889,38 +878,44 @@ function executeCheck() {
     printParameterInfo();
     print("\nExecuting check command...");
 
-    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
-
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
     }
 
-    var locationFile = (nodeInfo && typeof projectRoot !== 'undefined' && projectRoot) ? (projectRoot + "/output/location.txt") : (typeof file !== 'undefined' ? file : null);
     print("\nRunning location analysis...");
-    if (locationFile) {
-        dc.locationAnalyze({}, locationFile);
-    } else {
-        dc.locationAnalyze({}, null);
-    }
+    var locationResult = analyzeLocationToObj();
 
     print("\n" + separator);
     print("Location Check Results");
     print(separator);
 
-    var displayFile = new File(locationFile);
-    if (displayFile.exist()) {
-        print(displayFile.read());
-        displayFile.close();
+    // 打印 Location 信息
+    if (locationResult && locationResult.LocationInfo) {
+        printLocationInfo(locationResult.LocationInfo, null);
+    }
 
-        // 读取配置文件中的期望Location
-        if (initLocationObject) {
-            print("\n" + separator);
-            print("Expected Locations from Config File");
-            print(separator);
-            print(JSON.stringify(initLocationObject, null, 2));
-        }
-    } else {
-        print("\nWarning: Location file not found: " + locationFile);
+    // 读取配置文件中的期望Location
+    if (initLocationObject) {
+        print("\n" + separator);
+        print("Expected Locations from Config File");
+        print(separator);
+        print(JSON.stringify(initLocationObject, null, 2));
+    }
+
+    // 打印异常信息
+    if (locationResult) {
+        printExceptionInfo(locationResult.ExceptionHostInfo);
+        printExceptionInfo(locationResult.ExceptionGroupInfo);
+    }
+
+    // 打印摘要信息
+    if (locationResult) {
+        print("\n" + separator);
+        print("[Summary]");
+        print("  Matched Host Num:  " + locationResult.MatchedHostNum);
+        print("  Matched Group Num: " + locationResult.MatchedGroupNum);
+        print("  Matched Node Num:  " + locationResult.MatchedNodeNum);
+        print("  Active Location:   " + (locationResult.ActiveLocation ? locationResult.ActiveLocation : "Not configured"));
     }
 
     print("\n" + separator);

@@ -852,7 +852,7 @@ function executeShow() {
     printParameterInfo();
     print("\nExecuting show command...");
 
-    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
+    var nodeInfo = typeof file !== 'undefined' ? readNodeFile(file) : null;
 
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
@@ -885,7 +885,7 @@ function executeCheck() {
     printParameterInfo();
     print("\nExecuting check command...");
 
-    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
+    var nodeInfo = typeof file !== 'undefined' ? readNodeFile(file) : null;
 
     if (!connectToSdb()) {
         throw new Error("Failed to connect to SequoiaDB");
@@ -992,7 +992,7 @@ function executeStartMaintenance() {
     print("  MaxKeepTime: " + maxKeepTime + " minutes");
     print("  Enforce: " + enforceMaintenance);
 
-    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
+    var nodeInfo = typeof file !== 'undefined' ? readNodeFile(file) : null;
 
     var locationsCount = 0;
     var hostnamesCount = 0;
@@ -1131,7 +1131,7 @@ function executeStopMaintenance() {
     printParameterInfo();
     print("\nExecuting stop_maintenance command...");
 
-    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
+    var nodeInfo = typeof file !== 'undefined' ? readNodeFile(file) : null;
 
     var locationsCount = 0;
     var hostnamesCount = 0;
@@ -1261,7 +1261,7 @@ function executeStartCritical() {
     print("  MaxKeepTime: " + maxKeepTime + " minutes");
     print("  Enforce: " + enforceCritical);
 
-    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
+    var nodeInfo = typeof file !== 'undefined' ? readNodeFile(file) : null;
 
     var locationsCount = 0;
     var hostnamesCount = 0;
@@ -1400,7 +1400,7 @@ function executeStopCritical() {
     printParameterInfo();
     print("\nExecuting stop_critical command...");
 
-    var nodeInfo = (typeof file !== 'undefined' && file) ? readNodeFile(file) : null;
+    var nodeInfo = typeof file !== 'undefined' ? readNodeFile(file) : null;
 
     var locationsCount = 0;
     var hostnamesCount = 0;

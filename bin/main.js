@@ -48,30 +48,24 @@ function connectToSdb() {
         return true;
     }
 
-    var sdb_cmd = "sdb";
-
-    // 设置连接参数（使用全局变量）
-    if (sdbCipherFile && new File(sdbCipherFile).exist()) {
-        var cipherUser = CipherUser(sdbUser);
-        cipherUser.cipherFile(sdbCipherFile);
-        sdb = new Sdb(sdbCoord.split(':')[0], parseInt(sdbCoord.split(':')[1] || '11810'), cipherUser);
-    } else {
-        sdb = new Sdb(sdbCoord.split(':')[0], parseInt(sdbCoord.split(':')[1] || '11810'), sdbUser, sdbPassword);
-    }
-
     // 检查连接是否成功
     try {
+        // 设置连接参数（使用全局变量）
+        if (sdbCipherFile && new File(sdbCipherFile).exist()) {
+            var cipherUser = CipherUser(sdbUser);
+            cipherUser.cipherFile(sdbCipherFile);
+            db = new Sdb(sdbCoord.split(':')[0], parseInt(sdbCoord.split(':')[1] || '11810'), cipherUser);
+        } else {
+            db = new Sdb(sdbCoord.split(':')[0], parseInt(sdbCoord.split(':')[1] || '11810'), sdbUser, sdbPassword);
+        }
         // 获取全局 db 和 dc 对象
-        db = sdb;
-        dc = sdb.getDC();
-
-        // 测试连接
-        db.getCS("SYSCat").getCL("$CMD", {}, {});
+        dc = db.getDC();
 
         return true;
     } catch (e) {
         db = null;
         dc = null;
+        print("Error connecting to SequoiaDB: " + e.message);
         return false;
     }
 }
@@ -126,6 +120,7 @@ function analyzeLocation(locationFile) {
         dc.locationAnalyze({}, locationFile);
         return true;
     } catch (e) {
+        print("Error in location analyze: " + e.message);
         throw e;
     }
 }
@@ -140,6 +135,7 @@ function analyzeLocationToObj() {
         var result = dc.locationAnalyze({}, null);
         return result;
     } catch (e) {
+        print("Error in location analyze: " + e.message);
         throw e;
     }
 }
@@ -166,6 +162,7 @@ function getGroupModeInfo() {
         cursor.close();
         return modes;
     } catch (e) {
+        print("Error getting group mode info: " + e.message);
         throw e;
     }
 }
@@ -216,6 +213,7 @@ function checkNodes(mode) {
 
         return !hasError;
     } catch (e) {
+        print("Error checking nodes: " + e.message);
         throw e;
     }
 }
@@ -240,6 +238,7 @@ function stopAllMaintenanceMode() {
 
         return count > 0;
     } catch (e) {
+        print("Error stopping all maintenance modes: " + e.message);
         throw e;
     }
 }
@@ -264,6 +263,7 @@ function stopAllCriticalMode() {
 
         return count > 0;
     } catch (e) {
+        print("Error stopping all critical modes: " + e.message);
         throw e;
     }
 }
@@ -300,6 +300,7 @@ function checkClusterHealth() {
 
         return true;
     } catch (e) {
+        print("Error checking cluster health: " + e.message);
         throw e;
     }
 }

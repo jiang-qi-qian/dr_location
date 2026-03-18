@@ -43,6 +43,11 @@ function showHelp() {
 
 // 连接到 SequoiaDB
 function connectToSdb() {
+    // 如果已经连接，直接返回
+    if (db !== null) {
+        return true;
+    }
+
     var sdb_cmd = "sdb";
 
     // 设置连接参数（使用全局变量）
@@ -65,14 +70,17 @@ function connectToSdb() {
 
         return true;
     } catch (e) {
+        db = null;
+        dc = null;
         return false;
     }
 }
 
 // 断开连接
 function disconnectFromSdb() {
-    // sdb 客户端自动管理连接
-    return true;
+    // 清空全局对象
+    db = null;
+    dc = null;
 }
 
 // 获取当前时间戳
@@ -116,10 +124,8 @@ function analyzeLocation(locationFile) {
 
     try {
         dc.locationAnalyze({}, locationFile);
-        disconnectFromSdb();
         return true;
     } catch (e) {
-        disconnectFromSdb();
         throw e;
     }
 }
@@ -132,10 +138,8 @@ function analyzeLocationToObj() {
 
     try {
         var result = dc.locationAnalyze({}, null);
-        disconnectFromSdb();
         return result;
     } catch (e) {
-        disconnectFromSdb();
         throw e;
     }
 }
@@ -160,10 +164,8 @@ function getGroupModeInfo() {
             });
         }
         cursor.close();
-        disconnectFromSdb();
         return modes;
     } catch (e) {
-        disconnectFromSdb();
         throw e;
     }
 }
@@ -211,11 +213,9 @@ function checkNodes(mode) {
             }
         }
         cursor.close();
-        disconnectFromSdb();
 
         return !hasError;
     } catch (e) {
-        disconnectFromSdb();
         throw e;
     }
 }
@@ -238,10 +238,8 @@ function stopAllMaintenanceMode() {
             }
         }
 
-        disconnectFromSdb();
         return count > 0;
     } catch (e) {
-        disconnectFromSdb();
         throw e;
     }
 }
@@ -264,10 +262,8 @@ function stopAllCriticalMode() {
             }
         }
 
-        disconnectFromSdb();
         return count > 0;
     } catch (e) {
-        disconnectFromSdb();
         throw e;
     }
 }
@@ -296,17 +292,14 @@ function checkClusterHealth() {
                 var node = obj.Group[i];
                 if (node.Status && node.Status !== "OK") {
                     cursor.close();
-                    disconnectFromSdb();
                     return false;
                 }
             }
         }
         cursor.close();
-        disconnectFromSdb();
 
         return true;
     } catch (e) {
-        disconnectFromSdb();
         throw e;
     }
 }
@@ -705,18 +698,6 @@ function main() {
         // 加载配置
         loadConfig();
 
-        // 初始化连接
-        if (!connectToSdb()) {
-            print("\nError" + "              " + "Failed to connect to SequoiaDB");
-            print("\nPlease check your connection configuration in config.js");
-            return;
-        }
-
-        print("\nConnected to SequoiaDB successfully");
-        print("Coordinate: " + sdbCoord);
-        print("User: " + sdbUser);
-        print("\n");
-
         // 执行对应命令
         // 参数通过 sdb -e 传入后直接在全局作用域可用
         // 先验证所有参数
@@ -749,13 +730,11 @@ function main() {
                 break;
         }
 
-        disconnectFromSdb();
         print("\n" + separator);
         print("Operation completed successfully");
         print(separator);
 
     } catch (e) {
-        disconnectFromSdb();
         print("\nError" + "              " + e.message);
         if (e.stack) {
             print("\nStack trace:");
@@ -764,6 +743,9 @@ function main() {
                 print("  " + stackLines[i]);
             }
         }
+    } finally {
+        // 统一在函数结束时释放连接
+        disconnectFromSdb();
     }
 }
 
@@ -878,7 +860,6 @@ function executeShow() {
     var locationFile = nodeInfo ? (projectRoot + "/output/location.txt") : file;
     print("\nRunning location analysis...");
     dc.locationAnalyze({}, locationFile);
-    disconnectFromSdb();
 
     print("\n" + separator);
     print("Location Information");
@@ -912,7 +893,6 @@ function executeCheck() {
     var locationFile = nodeInfo ? (projectRoot + "/output/location.txt") : file;
     print("\nRunning location analysis...");
     dc.locationAnalyze({}, locationFile);
-    disconnectFromSdb();
 
     print("\n" + separator);
     print("Location Check Results");

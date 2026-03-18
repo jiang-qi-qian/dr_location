@@ -804,10 +804,9 @@ function validateParameters() {
     }
 
     // 检查 location 参数（用于 stop_maintenance 和 stop_critical 的 --check 选项）
-    if (check && mode === 'stop_maintenance') {
-        if (!location) {
-            errors.push("Location parameter is required for stop_maintenance with --check option");
-        }
+    if (typeof check === 'undefined') {
+        // 如果 check 未定义，默认值为 0（不检查）
+        check = 0;
     }
 
     // 检查 check 参数是否为有效值
@@ -817,9 +816,6 @@ function validateParameters() {
         } else if (check !== 0 && check !== 1 && check !== true && check !== false) {
             errors.push("check parameter must be 0, 1, true, or false");
         }
-    } else if (typeof check === 'undefined') {
-        // 如果 check 未定义，默认值为 0（不检查）
-        check = 0;
     }
 
     if (errors.length > 0) {

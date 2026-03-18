@@ -118,6 +118,19 @@ function analyzeLocationToObj() {
 
     try {
         var result = dc.locationAnalyze({}, null);
+
+        // 如果返回的是游标，需要遍历合并结果
+        if (result && typeof result.next === 'function') {
+            var finalResult = {};
+            while (result.hasNext()) {
+                var obj = result.next();
+                // 合并所有游标结果（只取最后一个，因为 locationAnalyze 应该只返回一条记录）
+                finalResult = obj;
+            }
+            result.close();
+            return finalResult;
+        }
+
         return result;
     } catch (e) {
         print("Error in location analyze: " + e.message);

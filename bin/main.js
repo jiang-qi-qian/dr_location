@@ -835,15 +835,15 @@ function printParameterInfo() {
     print("\n" + separator);
     print("Execution Parameters");
     print(separator);
-    print("  Mode:        " + mode);
-    print("  Config File: " + (c ? c : "not specified"));
-    print("  Project Root:" + (projectRoot ? projectRoot : "not specified"));
-    print("  File:        " + (file ? file : "not specified"));
-    print("  Location:    " + (l ? l : "not specified"));
-    print("  Hostnames:   " + (H ? H : "not specified"));
-    print("  Nodenames:   " + (n ? n : "not specified"));
-    print("  Domains:     " + (d ? d : "not specified"));
-    print("  Check:       " + check);
+    print("  Mode:        " + (mode ? mode : "not specified"));
+    print("  Config File: " + (typeof c !== 'undefined' ? c : "not specified"));
+    print("  Project Root:" + (typeof projectRoot !== 'undefined' ? projectRoot : "not specified"));
+    print("  File:        " + (typeof file !== 'undefined' ? file : "not specified"));
+    print("  Location:    " + (typeof l !== 'undefined' ? l : "not specified"));
+    print("  Hostnames:   " + (typeof H !== 'undefined' ? H : "not specified"));
+    print("  Nodenames:   " + (typeof n !== 'undefined' ? n : "not specified"));
+    print("  Domains:     " + (typeof d !== 'undefined' ? d : "not specified"));
+    print("  Check:       " + (typeof check !== 'undefined' ? check : "not specified"));
     print(separator);
 }
 

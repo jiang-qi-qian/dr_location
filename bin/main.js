@@ -46,7 +46,7 @@ function connectToSdb() {
     var sdb_cmd = "sdb";
 
     // 设置连接参数（使用全局变量）
-    if (sdbCipherFile && new File(sdbCipherFile).exists()) {
+    if (sdbCipherFile && new File(sdbCipherFile).exist()) {
         var cipherUser = CipherUser(sdbUser);
         cipherUser.cipherFile(sdbCipherFile);
         sdb = new Sdb(sdbCoord.split(':')[0], parseInt(sdbCoord.split(':')[1] || '11810'), cipherUser);
@@ -502,7 +502,7 @@ function printLocationAnalyzeResult(locationFile, groupModeInfo, maxKeepTime) {
 
     // 读取分析结果
     var resultFile = new File(locationFile);
-    if (!resultFile.exists()) {
+    if (!resultFile.exist()) {
         print("\nError: Location file not found: " + locationFile);
         return;
     }
@@ -640,7 +640,7 @@ function readNodeFile(filePath) {
     }
 
     var file = new File(filePath);
-    if (!file.exists()) {
+    if (!file.exist()) {
         print("Warning: Node file not found: " + filePath);
         return null;
     }
@@ -885,7 +885,7 @@ function executeShow() {
     print(separator);
 
     var displayFile = new File(locationFile);
-    if (displayFile.exists()) {
+    if (displayFile.exist()) {
         print(displayFile.read());
         displayFile.close();
         print("\n");
@@ -919,7 +919,7 @@ function executeCheck() {
     print(separator);
 
     var displayFile = new File(locationFile);
-    if (displayFile.exists()) {
+    if (displayFile.exist()) {
         print(displayFile.read());
         displayFile.close();
 

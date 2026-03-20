@@ -617,7 +617,7 @@ function loadConfig() {
     }
 }
 
-// 读取节点信息文件
+// 读取节点信息文件（逐行读取）
 function readNodeFile(filePath) {
     if (!filePath) {
         return null;
@@ -629,9 +629,6 @@ function readNodeFile(filePath) {
         return null;
     }
 
-    var content = file.read();
-    file.close();
-
     var nodeInfo = {
         locations: [],
         hostnames: [],
@@ -639,9 +636,10 @@ function readNodeFile(filePath) {
         domains: []
     };
 
-    var lines = content.split('\n');
     var currentSection = null;
 
+    // 逐行读取文件
+    var lines = file.readlines();
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
 
@@ -669,6 +667,8 @@ function readNodeFile(filePath) {
             }
         }
     }
+
+    file.close();
 
     return nodeInfo;
 }
